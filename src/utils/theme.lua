@@ -3,57 +3,57 @@ local TweenService = game:GetService("TweenService")
 local Theme = {}
 
 Theme.Presets = {
-	Obsidian = {
-		Name = "Obsidian",
-		Bg = Color3.fromRGB(10, 11, 14),
-		Tile = Color3.fromRGB(12, 13, 17),
-		Card = Color3.fromRGB(20, 22, 28),
-		CardHover = Color3.fromRGB(30, 33, 42),
-		Text = Color3.fromRGB(245, 247, 252),
-		SubText = Color3.fromRGB(150, 158, 172),
-		Accent = Color3.fromRGB(235, 240, 255),
+	SpatialGlass = {
+		Name = "Spatial Glass",
+		Bg = Color3.fromRGB(36, 40, 48),
+		Tile = Color3.fromRGB(46, 50, 58),
+		Card = Color3.fromRGB(64, 68, 78),
+		CardHover = Color3.fromRGB(82, 88, 100),
+		Text = Color3.fromRGB(255, 255, 255),
+		SubText = Color3.fromRGB(195, 200, 210),
+		Accent = Color3.fromRGB(255, 255, 255),
 		Glow = Color3.fromRGB(255, 255, 255),
-		Danger = Color3.fromRGB(235, 85, 100),
+		Danger = Color3.fromRGB(255, 95, 90),
 	},
-	IceFrost = {
-		Name = "Ice Frost",
-		Bg = Color3.fromRGB(12, 16, 24),
-		Tile = Color3.fromRGB(15, 21, 32),
-		Card = Color3.fromRGB(22, 30, 44),
-		CardHover = Color3.fromRGB(30, 42, 62),
-		Text = Color3.fromRGB(240, 248, 255),
-		SubText = Color3.fromRGB(142, 170, 200),
-		Accent = Color3.fromRGB(130, 205, 255),
-		Glow = Color3.fromRGB(150, 215, 255),
-		Danger = Color3.fromRGB(235, 90, 105),
+	FrostedMist = {
+		Name = "Frosted Mist",
+		Bg = Color3.fromRGB(42, 52, 66),
+		Tile = Color3.fromRGB(54, 66, 82),
+		Card = Color3.fromRGB(74, 88, 106),
+		CardHover = Color3.fromRGB(92, 108, 128),
+		Text = Color3.fromRGB(255, 255, 255),
+		SubText = Color3.fromRGB(205, 218, 232),
+		Accent = Color3.fromRGB(220, 240, 255),
+		Glow = Color3.fromRGB(235, 246, 255),
+		Danger = Color3.fromRGB(255, 95, 90),
 	},
-	Sakura = {
-		Name = "Sakura",
-		Bg = Color3.fromRGB(16, 12, 18),
-		Tile = Color3.fromRGB(20, 15, 24),
-		Card = Color3.fromRGB(30, 22, 36),
-		CardHover = Color3.fromRGB(42, 30, 50),
-		Text = Color3.fromRGB(255, 244, 250),
-		SubText = Color3.fromRGB(185, 150, 172),
-		Accent = Color3.fromRGB(255, 145, 195),
-		Glow = Color3.fromRGB(255, 175, 215),
-		Danger = Color3.fromRGB(240, 85, 100),
+	WarmTitanium = {
+		Name = "Warm Titanium",
+		Bg = Color3.fromRGB(46, 44, 42),
+		Tile = Color3.fromRGB(58, 55, 52),
+		Card = Color3.fromRGB(76, 72, 68),
+		CardHover = Color3.fromRGB(94, 90, 85),
+		Text = Color3.fromRGB(255, 252, 248),
+		SubText = Color3.fromRGB(205, 200, 194),
+		Accent = Color3.fromRGB(255, 250, 242),
+		Glow = Color3.fromRGB(255, 250, 244),
+		Danger = Color3.fromRGB(255, 95, 90),
 	},
-	Violet = {
-		Name = "Violet",
-		Bg = Color3.fromRGB(13, 12, 20),
-		Tile = Color3.fromRGB(17, 15, 28),
-		Card = Color3.fromRGB(26, 23, 42),
-		CardHover = Color3.fromRGB(36, 32, 58),
-		Text = Color3.fromRGB(244, 242, 255),
-		SubText = Color3.fromRGB(160, 152, 195),
-		Accent = Color3.fromRGB(175, 145, 255),
-		Glow = Color3.fromRGB(190, 165, 255),
-		Danger = Color3.fromRGB(235, 85, 105),
+	Midnight = {
+		Name = "Midnight Glass",
+		Bg = Color3.fromRGB(20, 22, 26),
+		Tile = Color3.fromRGB(26, 28, 34),
+		Card = Color3.fromRGB(42, 46, 54),
+		CardHover = Color3.fromRGB(58, 62, 74),
+		Text = Color3.fromRGB(255, 255, 255),
+		SubText = Color3.fromRGB(178, 184, 196),
+		Accent = Color3.fromRGB(255, 255, 255),
+		Glow = Color3.fromRGB(255, 255, 255),
+		Danger = Color3.fromRGB(255, 95, 90),
 	},
 }
 
-Theme.Current = Theme.Presets.Obsidian
+Theme.Current = Theme.Presets.SpatialGlass
 local bindings = {}
 
 function Theme.Bind(obj, prop, key)
@@ -63,9 +63,7 @@ end
 
 function Theme.SetPreset(presetName)
 	local preset = Theme.Presets[presetName]
-	if not preset then
-		return
-	end
+	if not preset then return end
 	Theme.Current = preset
 
 	local alive = {}
