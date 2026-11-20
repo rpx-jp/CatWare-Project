@@ -172,7 +172,6 @@ local function tryBuildFromRbxm(fileName, targetLength)
 		rootObj.Parent = tempModel
 	end
 
-	-- もし RingPivot パーツがあればリング中心として使う
 	local customPivotPos = nil
 	local ringMarker = tempModel:FindFirstChild("RingPivot", true)
 	if ringMarker and ringMarker:IsA("BasePart") then
@@ -187,23 +186,24 @@ local function tryBuildFromRbxm(fileName, targetLength)
 		return false
 	end
 
-	local normScale = (targetLength or 1.25) / maxDim
-
-	-- 一番長い軸が X に来るように自動整列（Karambit はリングが右奥、刃が左前へ）
-	local alignCF
-	if boxSize.Z > boxSize.X then
-		-- Z が最長なら Y90° で X 軸に揃える
-		alignCF = CFrame.Angles(0, math.rad(90), 0)
-	else
-		-- 画像通り X が最長でリングが左(-X)・刃が右(+X)なら 180° 反転して手前にリングを置く
-		alignCF = CFrame.Angles(0, math.rad(180), math.rad(-14))
+	-- RingPivot がモデル本体から遠く離れていたら誤配置として無視
+	if customPivotPos and (customPivotPos - boxCF.Position).Magnitude > maxDim * 0.75 then
+		customPivotPos = nil
 	end
 
-	local pivotWorldPos = customPivotPos or (
-		boxCF.Position
-		- boxCF.RightVector * (boxSize.X * 0.36)
-		- boxCF.UpVector * (boxSize.Y * 0.08)
-	)
+	local normScale = (targetLength or 1.25) / maxDim
+
+	-- 最長軸（Z軸長 or X軸長）を自動判定して一人称の向きに揃える
+	local alignCF, defaultPivotOffset
+	if boxSize.Z > boxSize.X then
+		alignCF = CFrame.Angles(0, math.rad(-90), math.rad(-14))
+		defaultPivotOffset = Vector3.new(0, -boxSize.Y * 0.08, -boxSize.Z * 0.36)
+	else
+		alignCF = CFrame.Angles(0, math.rad(180), math.rad(-14))
+		defaultPivotOffset = Vector3.new(-boxSize.X * 0.36, -boxSize.Y * 0.08, 0)
+	end
+
+	local pivotWorldPos = customPivotPos or (boxCF * defaultPivotOffset)
 	local pivotFrame = CFrame.new(pivotWorldPos)
 
 	for _, desc in ipairs(tempModel:GetDescendants()) do
