@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local function createHub(parent, CatWare, Theme, onSelectPage)
 	local player = Players.LocalPlayer
 	local logoAsset = CatWare.Assets.Get("cw.png")
+	local Icons = CatWare.Import("src/gui/main/icons.lua")
 
 	local hub = Instance.new("Frame")
 	hub.Name = "BentoHub"
@@ -11,13 +12,14 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	hub.Position = UDim2.fromScale(0.5, 0.5)
 	hub.Size = UDim2.fromOffset(456, 408)
 	hub.BackgroundTransparency = 1
+	hub.ZIndex = 10
 	hub.Parent = parent
 
 	local hubScale = Instance.new("UIScale")
 	hubScale.Scale = 0.92
 	hubScale.Parent = hub
 
-	-- 背後のうっすら透かしロゴ（参考画像の背景ロゴ風）
+	-- 背後の透かしロゴ
 	local watermark = Instance.new("ImageLabel")
 	watermark.AnchorPoint = Vector2.new(0.5, 0.5)
 	watermark.Position = UDim2.fromScale(0.5, 0.5)
@@ -30,13 +32,11 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	watermark.Parent = hub
 
 	local tiles = {}
-
-	-- 2×2 タイル定義
 	local tileDefs = {
-		{ id = "visuals",  label = "Visuals",   icon = "☆", pos = UDim2.fromOffset(0, 0) },
-		{ id = "models",   label = "3D Models", icon = "◈", pos = UDim2.fromOffset(236, 0) },
-		{ id = "settings", label = "Settings",  icon = "⚙", pos = UDim2.fromOffset(0, 212) },
-		{ id = "themes",   label = "Themes",    icon = "✎", pos = UDim2.fromOffset(236, 212) },
+		{ id = "visuals",  label = "Visuals",   pos = UDim2.fromOffset(0, 0) },
+		{ id = "models",   label = "3D Models", pos = UDim2.fromOffset(236, 0) },
+		{ id = "settings", label = "Settings",  pos = UDim2.fromOffset(0, 212) },
+		{ id = "themes",   label = "Themes",    pos = UDim2.fromOffset(236, 212) },
 	}
 
 	for _, def in ipairs(tileDefs) do
@@ -60,7 +60,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 
 		local stroke = Instance.new("UIStroke")
 		stroke.Thickness = 1.2
-		stroke.Transparency = 0.86
+		stroke.Transparency = 0.84
 		Theme.Bind(stroke, "Color", "Glow")
 		stroke.Parent = tile
 
@@ -68,45 +68,29 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		tScale.Scale = 1
 		tScale.Parent = tile
 
-		-- アイコン背後のふんわり白グロー（3層）
+		-- 発光グロー（3層）
 		local glows = {}
-		local glowConfigs = {
+		for _, gc in ipairs({
 			{ size = 128, base = 0.94, hover = 0.88 },
 			{ size = 82,  base = 0.90, hover = 0.82 },
 			{ size = 46,  base = 0.86, hover = 0.76 },
-		}
-		for _, gc in ipairs(glowConfigs) do
+		}) do
 			local g = Instance.new("Frame")
 			g.AnchorPoint = Vector2.new(0.5, 0.5)
-			g.Position = UDim2.new(0.5, 0, 0.44, 0)
+			g.Position = UDim2.new(0.5, 0, 0.42, 0)
 			g.Size = UDim2.fromOffset(gc.size, gc.size)
 			g.BackgroundTransparency = gc.base
 			g.BorderSizePixel = 0
 			g.ZIndex = 6
 			Theme.Bind(g, "BackgroundColor3", "Glow")
 			g.Parent = tile
-
-			local cr = Instance.new("UICorner")
-			cr.CornerRadius = UDim.new(1, 0)
-			cr.Parent = g
-
+			Instance.new("UICorner", g).CornerRadius = UDim.new(1, 0)
 			table.insert(glows, { frame = g, base = gc.base, hover = gc.hover })
 		end
 
-		-- アイコン
-		local iconLbl = Instance.new("TextLabel")
-		iconLbl.AnchorPoint = Vector2.new(0.5, 0.5)
-		iconLbl.Position = UDim2.new(0.5, 0, 0.41, 0)
-		iconLbl.Size = UDim2.fromOffset(64, 54)
-		iconLbl.BackgroundTransparency = 1
-		iconLbl.Font = Enum.Font.GothamBold
-		iconLbl.Text = def.icon
-		iconLbl.TextSize = 36
-		iconLbl.ZIndex = 7
-		Theme.Bind(iconLbl, "TextColor3", "Accent")
-		iconLbl.Parent = tile
+		-- 図形アイコン（文字化けなし）
+		Icons.Create(def.id, tile, Theme)
 
-		-- ラベル
 		local nameLbl = Instance.new("TextLabel")
 		nameLbl.AnchorPoint = Vector2.new(0.5, 0)
 		nameLbl.Position = UDim2.new(0.5, 0, 0.62, 0)
@@ -119,31 +103,27 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		Theme.Bind(nameLbl, "TextColor3", "Text")
 		nameLbl.Parent = tile
 
-		-- ホバー＆クリック演出
 		tile.MouseEnter:Connect(function()
 			TweenService:Create(tScale, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Scale = 1.03 }):Play()
-			TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.52 }):Play()
+			TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.5 }):Play()
 			for _, g in ipairs(glows) do
 				TweenService:Create(g.frame, TweenInfo.new(0.2), { BackgroundTransparency = g.hover }):Play()
 			end
 		end)
-
 		tile.MouseLeave:Connect(function()
 			TweenService:Create(tScale, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Scale = 1 }):Play()
-			TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.86 }):Play()
+			TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.84 }):Play()
 			for _, g in ipairs(glows) do
 				TweenService:Create(g.frame, TweenInfo.new(0.2), { BackgroundTransparency = g.base }):Play()
 			end
 		end)
-
 		tile.MouseButton1Click:Connect(function()
-			onSelectPage(def.id, def.label, def.icon)
+			onSelectPage(def.id, def.label)
 		end)
 	end
 
-	-- 中央のくり抜き影フレーム（4タイルの交差点に綺麗に浮かせる演出）
+	-- 中央のくり抜き枠＋プロフィールカード
 	local cutout = Instance.new("Frame")
-	cutout.Name = "CenterCutout"
 	cutout.AnchorPoint = Vector2.new(0.5, 0.5)
 	cutout.Position = UDim2.fromScale(0.5, 0.5)
 	cutout.Size = UDim2.fromOffset(128, 128)
@@ -151,25 +131,17 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	cutout.BackgroundTransparency = 0.25
 	cutout.ZIndex = 15
 	cutout.Parent = hub
+	Instance.new("UICorner", cutout).CornerRadius = UDim.new(0, 20)
 
-	local cutCorner = Instance.new("UICorner")
-	cutCorner.CornerRadius = UDim.new(0, 20)
-	cutCorner.Parent = cutout
-
-	-- 中央プロフィールカード
 	local profile = Instance.new("Frame")
-	profile.Name = "CenterProfile"
 	profile.AnchorPoint = Vector2.new(0.5, 0.5)
 	profile.Position = UDim2.fromScale(0.5, 0.5)
 	profile.Size = UDim2.fromOffset(112, 112)
-	profile.BackgroundTransparency = 0.1
+	profile.BackgroundTransparency = 0.08
 	profile.ZIndex = 20
 	Theme.Bind(profile, "BackgroundColor3", "Card")
 	profile.Parent = hub
-
-	local pCorner = Instance.new("UICorner")
-	pCorner.CornerRadius = UDim.new(0, 15)
-	pCorner.Parent = profile
+	Instance.new("UICorner", profile).CornerRadius = UDim.new(0, 15)
 
 	local pStroke = Instance.new("UIStroke")
 	pStroke.Thickness = 1.2
@@ -182,12 +154,8 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	avatar.Position = UDim2.new(0.5, 0, 0, 14)
 	avatar.Size = UDim2.fromOffset(44, 44)
 	avatar.BackgroundColor3 = Color3.fromRGB(28, 32, 42)
-	avatar.ZIndex = 21
 	avatar.Parent = profile
-
-	local avCorner = Instance.new("UICorner")
-	avCorner.CornerRadius = UDim.new(1, 0)
-	avCorner.Parent = avatar
+	Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
 
 	task.spawn(function()
 		local ok, thumb = pcall(function()
@@ -207,7 +175,6 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	dispName.Text = player.DisplayName
 	dispName.TextSize = 12
 	dispName.TextTruncate = Enum.TextTruncate.AtEnd
-	dispName.ZIndex = 21
 	Theme.Bind(dispName, "TextColor3", "Text")
 	dispName.Parent = profile
 
@@ -220,11 +187,9 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	userName.Text = "@" .. player.Name
 	userName.TextSize = 10
 	userName.TextTruncate = Enum.TextTruncate.AtEnd
-	userName.ZIndex = 21
 	Theme.Bind(userName, "TextColor3", "SubText")
 	userName.Parent = profile
 
-	-- 下部の操作ヒント
 	local hint = Instance.new("TextLabel")
 	hint.AnchorPoint = Vector2.new(0.5, 0)
 	hint.Position = UDim2.new(0.5, 0, 1, 14)
@@ -233,7 +198,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	hint.Font = Enum.Font.Gotham
 	hint.Text = "CatWare v" .. CatWare.Version .. "  •  RightShift で開閉"
 	hint.TextSize = 12
-	hint.TextTransparency = 0.25
+	hint.TextTransparency = 0.2
 	Theme.Bind(hint, "TextColor3", "SubText")
 	hint.Parent = hub
 
