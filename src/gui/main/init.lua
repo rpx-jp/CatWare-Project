@@ -7,7 +7,9 @@ local function initMainGui(CatWare)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local Theme = CatWare.Theme
 	local Notify = CatWare.Notify
-	local Components = CatWare.Import("src/gui/main/components.lua")
+local Components = CatWare.Import("src/gui/main/components.lua")
+	Components.Theme = Theme -- ← この1行を追加
+	
 	local createHub = CatWare.Import("src/gui/main/hub.lua")
 
 	-- 二重起動の掃除
