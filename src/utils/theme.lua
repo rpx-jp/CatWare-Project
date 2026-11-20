@@ -78,7 +78,6 @@ function Theme.SetPreset(presetName)
 	bindings = alive
 end
 
--- Vision Pro 風の上面がキラッと光る光学ガラス縁
 function Theme.GlassStroke(parent, opts)
 	opts = opts or {}
 	local stroke = Instance.new("UIStroke")
@@ -91,13 +90,14 @@ function Theme.GlassStroke(parent, opts)
 	local grad = Instance.new("UIGradient")
 	grad.Rotation = 90
 	grad.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.30),    -- 上辺：一番キラッと光る
-		NumberSequenceKeypoint.new(0.22, 0.76), -- 角から側面へスッと溶ける
-		NumberSequenceKeypoint.new(0.85, 0.86), -- 側面：繊細な縁
-		NumberSequenceKeypoint.new(1, 0.68),    -- 下辺：ほんのり底面反射
+		NumberSequenceKeypoint.new(0, 0.30),
+		NumberSequenceKeypoint.new(0.22, 0.76),
+		NumberSequenceKeypoint.new(0.85, 0.86),
+		NumberSequenceKeypoint.new(1, 0.68),
 	})
 	grad.Parent = stroke
 
 	return stroke
 end
+
 return Theme
