@@ -130,7 +130,15 @@ local function initMainGui(CatWare)
 	stageGlass.ImageTransparency = 0.06
 	stageGlass.ZIndex = 10
 	stageGlass.Parent = stageWrap
--- VisionOS風 ドラッグ用グリップバー
+-- ヘッダー（ここをドラッグすると全体が移動！）
+	local header = Instance.new("Frame")
+	header.Name = "StageHeader"
+	header.Size = UDim2.new(1, 0, 0, 62)
+	header.BackgroundTransparency = 1
+	header.ZIndex = 6
+	header.Parent = stageWrap
+
+	-- ↓ 必ずこの下に grip を置く！
 	local grip = Instance.new("Frame")
 	grip.AnchorPoint = Vector2.new(0.5, 0)
 	grip.Position = UDim2.new(0.5, 0, 0, 7)
@@ -154,34 +162,6 @@ local function initMainGui(CatWare)
 			BackgroundTransparency = 0.72,
 		}):Play()
 	end)
-	-- ヘッダー（ここをドラッグすると全体が移動！）
-	local header = Instance.new("Frame")
-	header.Name = "StageHeader"
-	header.Size = UDim2.new(1, 0, 0, 62)
-	header.BackgroundTransparency = 1
-	header.ZIndex = 6
-	header.Parent = stageWrap
-
-	-- ドラッグ処理
-	local dragging, dragStart, startPos
-	track(header.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = root.Position
-		end
-	end))
-	track(UserInputService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local d = input.Position - dragStart
-			root.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-		end
-	end))
-	track(UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end))
 
 	-- ヘッダー左：光るアイコンオーブ＋ページタイトル
 	local orb = Instance.new("Frame")
