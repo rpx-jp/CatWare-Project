@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Knife = {}
@@ -44,28 +45,35 @@ Knife.Skins = {
 	},
 }
 
+local AssetsRef = nil
 local enabled = false
-local weaponIdx = 1
+local weaponIdx = 2 -- デフォルトを Karambit にしてすぐ試せるように
 local skinIdx = 1
 local knifeScale = 1.0
-local offsetZ = -1.66
+local offsetZ = -1.56
 
 local model = nil
 local partsList = {}
 local renderConn = nil
 local inputConn = nil
-
-local animMode = "idle"
-local animTime = 0
 local lastCameraCF = nil
 
--- 2次スプリング物理（重み・慣性・着地ショック用）
+-- 2次スプリング物理
 local swayPos = Vector2.zero
 local swayVel = Vector2.zero
 local airY = 0
 local airVel = 0
 local walkPhase = 0
 local walkBlend = 0
+
+-- TweenService 駆動アニメ変数
+local vPos, vRot, vBlade, vSafe, vBite
+local seqId = 0
+local activeTweens = {}
+
+function Knife.SetAssets(assetsModule)
+	AssetsRef = assetsModule
+end
 
 local function makePart(parent, name, className, size, color, material, reflectance, shape)
 	local p = Instance.new(className or "Part")
@@ -139,7 +147,99 @@ local function addWedgeXY(group, role, x, y, widthX, heightY, thickZ, angleDeg, 
 end
 
 -- ==========================================================
--- モデル1: バタフライナイフ（Emerald 等）
+-- 外部 .rbxm モデル読み込み（Studio保存ファイル用）
+-- ==========================================================
+local function tryBuildFromRbxm(fileName, targetLength)
+	if not AssetsRef then return false end
+	local assetUrl = AssetsRef.Get(fileName)
+	if not assetUrl or assetUrl == "" then return false end
+
+	local ok, objs = pcall(function()
+		return game:GetObjects(assetUrl)
+	end)
+	if not ok or not objs or #objs == 0 then
+		return false
+	end
+
+	local rootObj = objs[1]
+	local tempModel = Instance.new("Model")
+	if rootObj:IsA("Model") then
+		for _, ch in ipairs(rootObj:GetChildren()) do
+			ch.Parent = tempModel
+		end
+		rootObj:Destroy()
+	else
+		rootObj.Parent = tempModel
+	end
+
+	-- もし RingPivot パーツがあればリング中心として使う
+	local customPivotPos = nil
+	local ringMarker = tempModel:FindFirstChild("RingPivot", true)
+	if ringMarker and ringMarker:IsA("BasePart") then
+		customPivotPos = ringMarker.Position
+		ringMarker:Destroy()
+	end
+
+	local boxCF, boxSize = tempModel:GetBoundingBox()
+	local maxDim = math.max(boxSize.X, boxSize.Y, boxSize.Z)
+	if maxDim <= 0.001 then
+		tempModel:Destroy()
+		return false
+	end
+
+	local normScale = (targetLength or 1.25) / maxDim
+
+	-- 一番長い軸が X に来るように自動整列（Karambit はリングが右奥、刃が左前へ）
+	local alignCF
+	if boxSize.Z > boxSize.X then
+		-- Z が最長なら Y90° で X 軸に揃える
+		alignCF = CFrame.Angles(0, math.rad(90), 0)
+	else
+		-- 画像通り X が最長でリングが左(-X)・刃が右(+X)なら 180° 反転して手前にリングを置く
+		alignCF = CFrame.Angles(0, math.rad(180), math.rad(-14))
+	end
+
+	local pivotWorldPos = customPivotPos or (
+		boxCF.Position
+		- boxCF.RightVector * (boxSize.X * 0.36)
+		- boxCF.UpVector * (boxSize.Y * 0.08)
+	)
+	local pivotFrame = CFrame.new(pivotWorldPos)
+
+	for _, desc in ipairs(tempModel:GetDescendants()) do
+		if desc:IsA("JointInstance") or desc:IsA("Constraint") then
+			desc:Destroy()
+		elseif desc:IsA("BasePart") then
+			desc.Anchored = true
+			desc.CanCollide = false
+			desc.CanTouch = false
+			desc.CanQuery = false
+			desc.CastShadow = false
+
+			local relCF = pivotFrame:ToObjectSpace(desc.CFrame)
+			local scaledRel = CFrame.new(relCF.Position * normScale) * (relCF - relCF.Position)
+			local finalLocalCF = alignCF * scaledRel
+			local baseSz = desc.Size * normScale
+
+			desc.Size = baseSz * knifeScale
+			desc.Parent = model
+
+			table.insert(partsList, {
+				part = desc,
+				baseSize = baseSz,
+				group = "blade",
+				role = "imported",
+				localCF = finalLocalCF,
+			})
+		end
+	end
+
+	tempModel:Destroy()
+	return #partsList > 0
+end
+
+-- ==========================================================
+-- フォールバック用コード生成モデル
 -- ==========================================================
 local function buildButterflyHandle(group, dirX, sk)
 	local PIN_WHITE = Color3.fromRGB(242, 246, 250)
@@ -203,11 +303,8 @@ local function buildButterfly(sk)
 	addWedgeXY("blade", "blade", -0.095, 0.082, 0.055, 0.036, thickZ, 118, true, sk.blade, 0.06)
 
 	local spinePts = {
-		Vector2.new(0.085, 0.04),
-		Vector2.new(0.095, 0.22),
-		Vector2.new(0.118, 0.42),
-		Vector2.new(0.155, 0.62),
-		Vector2.new(0.205, 0.79),
+		Vector2.new(0.085, 0.04), Vector2.new(0.095, 0.22), Vector2.new(0.118, 0.42),
+		Vector2.new(0.155, 0.62), Vector2.new(0.205, 0.79),
 	}
 	local widths = { 0.14, 0.175, 0.195, 0.170 }
 	for i = 1, #spinePts - 1 do
@@ -215,11 +312,7 @@ local function buildButterfly(sk)
 			sk.blade, 0.08, i > 1, i == (#spinePts - 1))
 	end
 
-	local darkPts = {
-		Vector2.new(0.125, 0.16),
-		Vector2.new(0.155, 0.38),
-		Vector2.new(0.192, 0.58),
-	}
+	local darkPts = { Vector2.new(0.125, 0.16), Vector2.new(0.155, 0.38), Vector2.new(0.192, 0.58) }
 	for i = 1, #darkPts - 1 do
 		addArcSegment("blade", "bladeDark", darkPts[i], darkPts[i + 1], 0.055, thickZ + 0.002,
 			sk.bladeDark, 0.06, i == 1, true)
@@ -230,11 +323,8 @@ local function buildButterfly(sk)
 	addWedgeXY("blade", "blade", 0.308, 1.00, 0.085, 0.17, thickZ, -52, false, sk.blade, 0.08)
 
 	local edgePts = {
-		Vector2.new(0.032, 0.24),
-		Vector2.new(0.045, 0.44),
-		Vector2.new(0.078, 0.64),
-		Vector2.new(0.132, 0.82),
-		Vector2.new(0.215, 0.96),
+		Vector2.new(0.032, 0.24), Vector2.new(0.045, 0.44), Vector2.new(0.078, 0.64),
+		Vector2.new(0.132, 0.82), Vector2.new(0.215, 0.96),
 	}
 	for i = 1, #edgePts - 1 do
 		addArcSegment("blade", "edge", edgePts[i], edgePts[i + 1], 0.024, edgeZ,
@@ -246,131 +336,223 @@ local function buildButterfly(sk)
 	buildButterflyHandle("bite", -1, sk)
 end
 
--- ==========================================================
--- モデル2: カランビット（中空リング＋指溝＋鉤爪ブレード）
--- ==========================================================
-local function buildKarambit(sk)
+local function buildKarambitFallback(sk)
 	local thickZ = 0.064
 	local bladeZ = 0.028
-
-	-- 1. 本当に向こう側が透ける中空フィンガーリング（14セグメント）
-	local segs = 14
-	local ringR = 0.082
+	local segs, ringR = 14, 0.082
 	for i = 1, segs do
 		local a = (i / segs) * math.pi * 2
-		local rx = math.cos(a) * ringR
-		local ry = math.sin(a) * ringR
 		regPart("blade", "handle", Vector3.new(0.032, 0.042, thickZ * 0.88), sk.handle,
-			CFrame.new(rx, ry, 0) * CFrame.Angles(0, 0, a), { reflectance = 0.04 })
+			CFrame.new(math.cos(a) * ringR, math.sin(a) * ringR, 0) * CFrame.Angles(0, 0, a), { reflectance = 0.04 })
 	end
-
-	-- 2. 指溝付きカーブグリップ（リングの下へ伸びる）
-	local gripPts = {
-		Vector2.new(0.01, -0.09),
-		Vector2.new(0.03, -0.24),
-		Vector2.new(0.01, -0.40),
-		Vector2.new(-0.04, -0.54),
-	}
+	local gripPts = { Vector2.new(0.01, -0.09), Vector2.new(0.03, -0.24), Vector2.new(0.01, -0.40), Vector2.new(-0.04, -0.54) }
 	local gripW = { 0.13, 0.135, 0.13 }
 	for i = 1, #gripPts - 1 do
-		addArcSegment("blade", "handle", gripPts[i], gripPts[i + 1], gripW[i], thickZ,
-			sk.handle, 0.03, true, i == (#gripPts - 1))
+		addArcSegment("blade", "handle", gripPts[i], gripPts[i + 1], gripW[i], thickZ, sk.handle, 0.03, true, i == (#gripPts - 1))
 	end
-	-- 背中の3つの指溝突起
-	for _, gy in ipairs({ -0.17, -0.30, -0.43 }) do
-		regPart("blade", "handle", Vector3.new(0.05, 0.055, thickZ + 0.004), sk.handle,
-			CFrame.new(0.075, gy, 0) * CFrame.Angles(0, 0, math.rad(45)))
-	end
-
-	-- 3. 鉤爪ブレード（左下へ向かって鋭く湾曲）
-	local clawPts = {
-		Vector2.new(-0.06, -0.54),
-		Vector2.new(-0.18, -0.66),
-		Vector2.new(-0.34, -0.74),
-		Vector2.new(-0.54, -0.76),
-		Vector2.new(-0.74, -0.70),
-	}
+	local clawPts = { Vector2.new(-0.06, -0.54), Vector2.new(-0.18, -0.66), Vector2.new(-0.34, -0.74), Vector2.new(-0.54, -0.76), Vector2.new(-0.74, -0.70) }
 	local clawW = { 0.17, 0.16, 0.135, 0.095 }
 	for i = 1, #clawPts - 1 do
-		addArcSegment("blade", "blade", clawPts[i], clawPts[i + 1], clawW[i], bladeZ,
-			sk.blade, 0.12, true, i == (#clawPts - 1))
+		addArcSegment("blade", "blade", clawPts[i], clawPts[i + 1], clawW[i], bladeZ, sk.blade, 0.12, true, i == (#clawPts - 1))
 	end
-	-- 先端の鋭い爪
 	addWedgeXY("blade", "blade", -0.85, -0.62, 0.078, 0.22, bladeZ, 66, false, sk.blade, 0.14)
+end
 
-	-- カランビット特有の背中の暗い面＆内側銀白エッジ
-	local edgePts = {
-		Vector2.new(-0.12, -0.57),
-		Vector2.new(-0.26, -0.64),
-		Vector2.new(-0.44, -0.67),
-		Vector2.new(-0.64, -0.65),
-		Vector2.new(-0.82, -0.59),
-	}
-	for i = 1, #edgePts - 1 do
-		addArcSegment("blade", "edge", edgePts[i], edgePts[i + 1], 0.022, bladeZ + 0.002,
-			sk.edge, 0.25, i == 1, true)
+local function buildKatanaFallback(sk)
+	local bladeZ, gripZ = 0.024, 0.062
+	regPart("blade", "handle", Vector3.new(0.088, 0.66, gripZ), sk.handle, CFrame.new(0, -0.22, 0), { reflectance = 0.02 })
+	regPart("blade", "bladeDark", Vector3.new(0.030, 0.23, 0.23), Color3.fromRGB(36, 40, 48),
+		CFrame.new(0, 0.12, 0) * CFrame.Angles(0, 0, math.rad(90)), { shape = Enum.PartType.Cylinder, reflectance = 0.2 })
+	local bladePts = { Vector2.new(0, 0.18), Vector2.new(-0.012, 0.56), Vector2.new(-0.04, 0.96), Vector2.new(-0.085, 1.36), Vector2.new(-0.145, 1.74) }
+	local bw = { 0.082, 0.078, 0.072, 0.064 }
+	for i = 1, #bladePts - 1 do
+		addArcSegment("blade", "blade", bladePts[i], bladePts[i + 1], bw[i], bladeZ, sk.blade, 0.16, i > 1, i == (#bladePts - 1))
 	end
+	addWedgeXY("blade", "blade", -0.185, 1.88, 0.060, 0.28, bladeZ, 14, true, sk.blade, 0.18)
 end
 
 -- ==========================================================
--- モデル3: カタナ（鍔＋柄巻き＋長刀）
+-- TweenService 駆動アニメエンジン
 -- ==========================================================
-local function buildKatana(sk)
-	local bladeZ = 0.024
-	local gripZ = 0.062
+local function initAnimValues(parentModel)
+	local f = Instance.new("Folder")
+	f.Name = "AnimValues"
+	f.Parent = parentModel
+	vPos = Instance.new("Vector3Value", f)
+	vRot = Instance.new("Vector3Value", f)
+	vBlade = Instance.new("NumberValue", f)
+	vSafe = Instance.new("NumberValue", f)
+	vBite = Instance.new("NumberValue", f)
+end
 
-	-- 柄（Tsuka）
-	regPart("blade", "handle", Vector3.new(0.088, 0.66, gripZ), sk.handle,
-		CFrame.new(0, -0.22, 0), { reflectance = 0.02 })
-	regPart("blade", "bladeDark", Vector3.new(0.094, 0.055, gripZ + 0.006), sk.bladeDark,
-		CFrame.new(0, -0.56, 0), { reflectance = 0.1 })
-	-- 柄糸のダイヤ模様
-	for y = -0.45, 0.03, 0.12 do
-		regPart("blade", "inlay", Vector3.new(0.055, 0.055, gripZ + 0.005), sk.blade,
-			CFrame.new(0, y, 0) * CFrame.Angles(0, 0, math.rad(45)))
+local function getIdlePose()
+	if Knife.Weapons[weaponIdx] == "Butterfly" then
+		return { pos = Vector3.zero, rot = Vector3.zero, blade = -24, safe = 46, bite = -2 }
 	end
+	return { pos = Vector3.zero, rot = Vector3.zero, blade = 0, safe = 0, bite = 0 }
+end
 
-	-- 鍔（Tsuba）＋ ハバキ
-	regPart("blade", "bladeDark", Vector3.new(0.030, 0.23, 0.23), Color3.fromRGB(36, 40, 48),
-		CFrame.new(0, 0.12, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		{ shape = Enum.PartType.Cylinder, reflectance = 0.2 })
-	regPart("blade", "inlay", Vector3.new(0.082, 0.06, 0.044), sk.blade,
-		CFrame.new(0, 0.16, 0), { reflectance = 0.18 })
-
-	-- 緩やかな反りのある刀身（Nagasa）
-	local bladePts = {
-		Vector2.new(0.000, 0.18),
-		Vector2.new(-0.012, 0.56),
-		Vector2.new(-0.040, 0.96),
-		Vector2.new(-0.085, 1.36),
-		Vector2.new(-0.145, 1.74),
-	}
-	local bw = { 0.082, 0.078, 0.072, 0.064 }
-	for i = 1, #bladePts - 1 do
-		addArcSegment("blade", "blade", bladePts[i], bladePts[i + 1], bw[i], bladeZ,
-			sk.blade, 0.16, i > 1, i == (#bladePts - 1))
+local function resetToIdleImmediate()
+	local idle = getIdlePose()
+	if vPos then
+		vPos.Value = idle.pos
+		vRot.Value = idle.rot
+		vBlade.Value = idle.blade
+		vSafe.Value = idle.safe
+		vBite.Value = idle.bite
 	end
-	-- 切先（Kissaki）
-	addWedgeXY("blade", "blade", -0.185, 1.88, 0.060, 0.28, bladeZ, 14, true, sk.blade, 0.18)
+end
 
-	-- 白銀の刃文（Hamon）
-	local hamonPts = {
-		Vector2.new(0.034, 0.20),
-		Vector2.new(0.022, 0.58),
-		Vector2.new(-0.006, 0.97),
-		Vector2.new(-0.052, 1.37),
-		Vector2.new(-0.114, 1.74),
-	}
-	for i = 1, #hamonPts - 1 do
-		addArcSegment("blade", "edge", hamonPts[i], hamonPts[i + 1], 0.018, bladeZ + 0.002,
-			sk.edge, 0.28, i == 1, true)
+local function nearestAngle(cur, target)
+	return target + math.floor((cur - target) / 360 + 0.5) * 360
+end
+
+local function cancelTweens()
+	seqId += 1
+	for _, tw in ipairs(activeTweens) do
+		pcall(function() tw:Cancel() end)
 	end
+	activeTweens = {}
+	return seqId
+end
+
+local function tweenStep(myId, dur, style, dir, goal)
+	if myId ~= seqId or not enabled then return false end
+	local info = TweenInfo.new(dur, style, dir)
+	local map = { pos = vPos, rot = vRot, blade = vBlade, safe = vSafe, bite = vBite }
+	for k, targetVal in pairs(goal) do
+		local obj = map[k]
+		if obj then
+			local tw = TweenService:Create(obj, info, { Value = targetVal })
+			table.insert(activeTweens, tw)
+			tw:Play()
+		end
+	end
+	task.wait(dur)
+	return myId == seqId and enabled
+end
+
+local function playEquipTween()
+	local myId = cancelTweens()
+	local wName = Knife.Weapons[weaponIdx]
+	local idle = getIdlePose()
+	if wName == "Butterfly" then
+		vPos.Value = Vector3.new(0.12, -0.45, 0.25)
+		vRot.Value = Vector3.new(-42, 18, -28)
+		vBlade.Value = -180
+		vSafe.Value = 180
+		vBite.Value = 150
+		task.spawn(function()
+			if not tweenStep(myId, 0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {
+				pos = Vector3.new(-0.07, 0.06, -0.05), rot = Vector3.new(12, 14, 22),
+				blade = -40, safe = 88, bite = -95,
+			}) then return end
+			tweenStep(myId, 0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out, idle)
+		end)
+	else
+		vPos.Value = Vector3.new(0.10, -0.42, 0.22)
+		vRot.Value = Vector3.new(-35, 16, -22)
+		vBlade.Value = -120
+		task.spawn(function()
+			tweenStep(myId, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out, idle)
+		end)
+	end
+end
+
+local function playInspectTween()
+	local myId = cancelTweens()
+	local wName = Knife.Weapons[weaponIdx]
+	local idle = getIdlePose()
+	task.spawn(function()
+		if wName == "Butterfly" then
+			if not tweenStep(myId, 0.14, Enum.EasingStyle.Sine, Enum.EasingDirection.In, {
+				pos = Vector3.new(0.05, -0.10, 0.05), rot = Vector3.new(-16, 6, -16),
+				blade = nearestAngle(vBlade.Value, -6), safe = nearestAngle(vSafe.Value, 18), bite = nearestAngle(vBite.Value, 28),
+			}) then return end
+			if not tweenStep(myId, 0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
+				pos = Vector3.new(-0.10, 0.10, -0.08), rot = Vector3.new(18, 24, 28),
+				blade = vBlade.Value + 135, safe = vSafe.Value - 125, bite = vBite.Value + 160,
+			}) then return end
+			if not tweenStep(myId, 0.36, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, {
+				pos = Vector3.new(-0.15, 0.14, -0.04), rot = Vector3.new(24, 34, 44),
+				blade = vBlade.Value + 165, safe = vSafe.Value - 135, bite = vBite.Value + 150,
+			}) then return end
+			if not tweenStep(myId, 0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, {
+				pos = Vector3.new(-0.06, 0.04, 0.02), rot = Vector3.new(4, 10, -18),
+				blade = vBlade.Value + 110, safe = vSafe.Value - 100, bite = vBite.Value + 90,
+			}) then return end
+			if not tweenStep(myId, 0.36, Enum.EasingStyle.Back, Enum.EasingDirection.Out, {
+				pos = idle.pos, rot = idle.rot,
+				blade = nearestAngle(vBlade.Value, idle.blade),
+				safe = nearestAngle(vSafe.Value, idle.safe),
+				bite = nearestAngle(vBite.Value, idle.bite),
+			}) then return end
+			resetToIdleImmediate()
+
+		elseif wName == "Karambit" then
+			-- フィンガーリングを中心に 2回転スピンしてキャッチ
+			if not tweenStep(myId, 0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In, {
+				pos = Vector3.new(-0.08, 0.06, -0.04), rot = Vector3.new(10, 14, -18),
+				blade = vBlade.Value - 35,
+			}) then return end
+			if not tweenStep(myId, 0.62, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out, {
+				pos = Vector3.new(-0.14, 0.12, -0.06), rot = Vector3.new(18, 28, -28),
+				blade = vBlade.Value + 755,
+			}) then return end
+			if not tweenStep(myId, 0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out, {
+				pos = idle.pos, rot = idle.rot,
+				blade = nearestAngle(vBlade.Value, idle.blade),
+			}) then return end
+			resetToIdleImmediate()
+
+		else
+			if not tweenStep(myId, 0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.In, {
+				pos = Vector3.new(-0.18, 0.08, -0.10), rot = Vector3.new(18, 28, 32),
+				blade = vBlade.Value - 25,
+			}) then return end
+			if not tweenStep(myId, 0.60, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut, {
+				pos = Vector3.new(-0.22, 0.14, -0.04), rot = Vector3.new(30, 44, 120),
+				blade = vBlade.Value + 385,
+			}) then return end
+			if not tweenStep(myId, 0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out, {
+				pos = idle.pos, rot = idle.rot,
+				blade = nearestAngle(vBlade.Value, idle.blade),
+			}) then return end
+			resetToIdleImmediate()
+		end
+	end)
+end
+
+local function playSlashTween()
+	local myId = cancelTweens()
+	local idle = getIdlePose()
+	task.spawn(function()
+		if not tweenStep(myId, 0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
+			pos = Vector3.new(0.14, 0.08, 0.06), rot = Vector3.new(14, -18, -22),
+			blade = nearestAngle(vBlade.Value, idle.blade + 6),
+			safe = nearestAngle(vSafe.Value, idle.safe - 4),
+			bite = nearestAngle(vBite.Value, idle.bite),
+		}) then return end
+		if not tweenStep(myId, 0.14, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out, {
+			pos = Vector3.new(-0.56, -0.06, -0.26), rot = Vector3.new(-32, 48, 38),
+			blade = nearestAngle(vBlade.Value, idle.blade - 8),
+			safe = nearestAngle(vSafe.Value, idle.safe - 22),
+		}) then return end
+		tweenStep(myId, 0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out, {
+			pos = idle.pos, rot = idle.rot,
+			blade = nearestAngle(vBlade.Value, idle.blade),
+			safe = nearestAngle(vSafe.Value, idle.safe),
+			bite = nearestAngle(vBite.Value, idle.bite),
+		})
+	end)
 end
 
 local function applySkin()
 	local sk = Knife.Skins[skinIdx]
 	for _, item in ipairs(partsList) do
-		if item.role == "blade" or item.role == "inlay" then
+		if item.role == "imported" then
+			continue
+		elseif item.role == "blade" or item.role == "inlay" then
 			item.part.Color = sk.blade
 		elseif item.role == "bladeDark" then
 			item.part.Color = sk.bladeDark
@@ -392,99 +574,27 @@ local function buildModel()
 	local sk = Knife.Skins[skinIdx]
 	local wName = Knife.Weapons[weaponIdx]
 
-	if wName == "Butterfly" then
-		buildButterfly(sk)
-	elseif wName == "Karambit" then
-		buildKarambit(sk)
+	-- 同名の .rbxm が src/assets/ にあれば最優先で読み込む！
+	local rbxmLoaded = false
+	if wName == "Karambit" then
+		rbxmLoaded = tryBuildFromRbxm("karambit.rbxm", 1.25)
+		if not rbxmLoaded then buildKarambitFallback(sk) end
+	elseif wName == "Butterfly" then
+		rbxmLoaded = tryBuildFromRbxm("butterfly.rbxm", 1.55)
+		if not rbxmLoaded then buildButterfly(sk) end
 	else
-		buildKatana(sk)
+		rbxmLoaded = tryBuildFromRbxm("katana.rbxm", 2.2)
+		if not rbxmLoaded then buildKatanaFallback(sk) end
 	end
 
 	-- 腕のビューモデル
-	regPart("arm", "arm", Vector3.new(0.42, 0.42, 1.65), Color3.fromRGB(20, 22, 26),
+	regPart("arm", "arm", Vector3.new(0.40, 0.40, 1.55), Color3.fromRGB(20, 22, 26),
 		CFrame.new(0.24, -0.44, 0.72) * CFrame.Angles(math.rad(-14), math.rad(22), math.rad(-16)))
 
+	initAnimValues(model)
+	resetToIdleImmediate()
 	model.Parent = workspace.CurrentCamera
 end
-
--- ==========================================================
--- 多段階キーフレーム補間エンジン（緩急＋オーバーシュート対応）
--- ==========================================================
-local function easeValue(u, mode)
-	if mode == "in" then
-		return u * u * u
-	elseif mode == "out" then
-		return 1 - (1 - u) ^ 3
-	elseif mode == "snap" then
-		local c = 1.70158
-		return 1 + (c + 1) * (u - 1) ^ 3 + c * (u - 1) ^ 2
-	else
-		return u < 0.5 and (4 * u * u * u) or (1 - (-2 * u + 2) ^ 3 / 2)
-	end
-end
-
-local function evalKeyframes(keys, t)
-	if t <= keys[1].t then return keys[1] end
-	if t >= keys[#keys].t then return keys[#keys] end
-	for i = 1, #keys - 1 do
-		local a, b = keys[i], keys[i + 1]
-		if t >= a.t and t <= b.t then
-			local u = easeValue((t - a.t) / math.max(b.t - a.t, 0.0001), b.ease or "inout")
-			return {
-				pos = a.pos:Lerp(b.pos, u),
-				rot = a.rot:Lerp(b.rot, u),
-				blade = a.blade + (b.blade - a.blade) * u,
-				safe = a.safe + (b.safe - a.safe) * u,
-				bite = a.bite + (b.bite - a.bite) * u,
-			}
-		end
-	end
-	return keys[#keys]
-end
-
--- バタフライナイフのキーフレーム定義
-local KF_BF_EQUIP = {
-	{ t = 0.00, pos = Vector3.new(0.10, -0.45, 0.25), rot = Vector3.new(-42, 18, -28), blade = -180, safe = 180, bite = 160 },
-	{ t = 0.28, pos = Vector3.new(-0.08, 0.06, -0.06), rot = Vector3.new(12, 14, 24),   blade = -45,  safe = 95,  bite = -110, ease = "out" },
-	{ t = 0.52, pos = Vector3.new(0.02, -0.04, 0.02),  rot = Vector3.new(-8, -6, -12),  blade = -18,  safe = 38,  bite = 8,    ease = "inout" },
-	{ t = 0.72, pos = Vector3.zero,                    rot = Vector3.zero,              blade = -24,  safe = 46,  bite = -2,   ease = "snap" },
-}
-
-local KF_BF_INSPECT = {
-	{ t = 0.00, pos = Vector3.zero,                    rot = Vector3.zero,              blade = -24,  safe = 46,   bite = -2 },
-	{ t = 0.14, pos = Vector3.new(0.05, -0.10, 0.05),  rot = Vector3.new(-16, 6, -16),  blade = -6,   safe = 18,   bite = 28,   ease = "in" },
-	{ t = 0.42, pos = Vector3.new(-0.10, 0.10, -0.08), rot = Vector3.new(18, 24, 28),   blade = 128,  safe = -110, bite = 185,  ease = "inout" },
-	{ t = 0.76, pos = Vector3.new(-0.16, 0.15, -0.04), rot = Vector3.new(26, 36, 46),   blade = 290,  safe = -240, bite = 335,  ease = "inout" },
-	{ t = 1.06, pos = Vector3.new(-0.08, 0.05, 0.02),  rot = Vector3.new(6, 12, -20),   blade = 415,  safe = -345, bite = 435,  ease = "inout" },
-	{ t = 1.38, pos = Vector3.new(0.03, -0.06, 0.03),  rot = Vector3.new(-14, -6, -14), blade = 330,  safe = -304, bite = 348,  ease = "out" },
-	{ t = 1.56, pos = Vector3.new(0.01, -0.02, 0.01),  rot = Vector3.new(-4, -2, -6),   blade = 342,  safe = -320, bite = 365,  ease = "out" },
-	{ t = 1.80, pos = Vector3.zero,                    rot = Vector3.zero,              blade = 336,  safe = -314, bite = 358,  ease = "snap" },
-}
-
-local KF_BF_SLASH = {
-	{ t = 0.00, pos = Vector3.zero,                    rot = Vector3.zero,              blade = -24, safe = 46, bite = -2 },
-	{ t = 0.10, pos = Vector3.new(0.14, 0.08, 0.06),   rot = Vector3.new(14, -18, -22), blade = -18, safe = 42, bite = -4,  ease = "in" },
-	{ t = 0.24, pos = Vector3.new(-0.56, -0.06, -0.26),rot = Vector3.new(-32, 48, 38),  blade = -30, safe = 24, bite = -12, ease = "out" },
-	{ t = 0.44, pos = Vector3.zero,                    rot = Vector3.zero,              blade = -24, safe = 46, bite = -2,  ease = "snap" },
-}
-
--- カランビット：フィンガーリング・スピン
-local KF_KARAMBIT_INSPECT = {
-	{ t = 0.00, pos = Vector3.zero,                    rot = Vector3.zero,              blade = 0,   safe = 0, bite = 0 },
-	{ t = 0.16, pos = Vector3.new(-0.08, 0.06, -0.04), rot = Vector3.new(10, 14, -18),  blade = -35, safe = 0, bite = 0, ease = "in" },
-	{ t = 0.55, pos = Vector3.new(-0.14, 0.12, -0.06), rot = Vector3.new(18, 28, -28),  blade = 385, safe = 0, bite = 0, ease = "inout" },
-	{ t = 1.00, pos = Vector3.new(-0.06, 0.04, -0.02), rot = Vector3.new(8, 12, -10),   blade = 738, safe = 0, bite = 0, ease = "out" },
-	{ t = 1.25, pos = Vector3.zero,                    rot = Vector3.zero,              blade = 720, safe = 0, bite = 0, ease = "snap" },
-}
-
--- カタナ：居合回し
-local KF_KATANA_INSPECT = {
-	{ t = 0.00, pos = Vector3.zero,                    rot = Vector3.zero,              blade = 0,   safe = 0, bite = 0 },
-	{ t = 0.25, pos = Vector3.new(-0.18, 0.08, -0.10), rot = Vector3.new(18, 28, 32),   blade = -25, safe = 0, bite = 0, ease = "in" },
-	{ t = 0.72, pos = Vector3.new(-0.24, 0.16, -0.04), rot = Vector3.new(32, 46, 120),  blade = 190, safe = 0, bite = 0, ease = "inout" },
-	{ t = 1.15, pos = Vector3.new(-0.08, -0.04, 0.04), rot = Vector3.new(-12, 10, -24), blade = 372, safe = 0, bite = 0, ease = "out" },
-	{ t = 1.45, pos = Vector3.zero,                    rot = Vector3.zero,              blade = 360, safe = 0, bite = 0, ease = "snap" },
-}
 
 local function isPointerOverGui()
 	local pg = Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui")
@@ -502,14 +612,13 @@ local function isPointerOverGui()
 end
 
 local function updateFrame(dt)
-	if not enabled or not model then return end
+	if not enabled or not model or not vPos then return end
 	local cam = workspace.CurrentCamera
 	if not cam then return end
 	if model.Parent ~= cam then model.Parent = cam end
 
 	local safeDt = math.clamp(dt, 0.001, 0.05)
 
-	-- カメラ回転によるスプリングスウェイ（重みのある遅れと収束）
 	local targetSway = Vector2.zero
 	if lastCameraCF then
 		local rel = lastCameraCF:ToObjectSpace(cam.CFrame)
@@ -518,12 +627,10 @@ local function updateFrame(dt)
 	end
 	lastCameraCF = cam.CFrame
 
-	local stiffness, damping = 180, 16
-	swayVel += (targetSway - swayPos) * stiffness * safeDt
-	swayVel *= math.exp(-damping * safeDt)
+	swayVel += (targetSway - swayPos) * 180 * safeDt
+	swayVel *= math.exp(-16 * safeDt)
 	swayPos += swayVel * safeDt
 
-	-- 歩行＆ジャンプ落下スプリング
 	local char = Players.LocalPlayer.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local rootPart = char and char:FindFirstChild("HumanoidRootPart")
@@ -542,36 +649,11 @@ local function updateFrame(dt)
 	local bobY = math.abs(math.sin(walkPhase)) * 0.024 * walkBlend
 	local breath = math.sin(os.clock() * 1.8) * 0.005
 
-	-- キーフレームポーズ評価
-	animTime += safeDt
 	local wName = Knife.Weapons[weaponIdx]
-	local pose = { pos = Vector3.zero, rot = Vector3.zero, blade = -24, safe = 46, bite = -2 }
-	if wName ~= "Butterfly" then
-		pose.blade, pose.safe, pose.bite = 0, 0, 0
-	end
-
-	if animMode ~= "idle" then
-		local kf
-		if wName == "Butterfly" then
-			kf = (animMode == "equip" and KF_BF_EQUIP) or (animMode == "inspect" and KF_BF_INSPECT) or KF_BF_SLASH
-		elseif wName == "Karambit" then
-			kf = (animMode == "inspect" and KF_KARAMBIT_INSPECT) or KF_BF_SLASH
-		else
-			kf = (animMode == "inspect" and KF_KATANA_INSPECT) or KF_BF_SLASH
-		end
-
-		local maxT = kf[#kf].t
-		pose = evalKeyframes(kf, animTime)
-		if animTime >= maxT then
-			animMode = "idle"
-		end
-	end
-
-	-- 武器種ごとの基本構え
 	local baseOffset, baseAngles
 	if wName == "Karambit" then
-		baseOffset = Vector3.new(0.66, -0.14, offsetZ + 0.14)
-		baseAngles = CFrame.Angles(math.rad(-14), math.rad(-26), math.rad(-16))
+		baseOffset = Vector3.new(0.62, -0.26, offsetZ + 0.12)
+		baseAngles = CFrame.Angles(math.rad(-10), math.rad(-22), math.rad(-12))
 	elseif wName == "Katana" then
 		baseOffset = Vector3.new(0.56, -0.52, offsetZ - 0.10)
 		baseAngles = CFrame.Angles(math.rad(-22), math.rad(-20), math.rad(14))
@@ -580,14 +662,18 @@ local function updateFrame(dt)
 		baseAngles = CFrame.Angles(math.rad(-6), math.rad(-18), math.rad(-10))
 	end
 
-	local handCamCF = CFrame.new(baseOffset.X + swayPos.X + bobX + pose.pos.X, baseOffset.Y + swayPos.Y - bobY + breath + airY + pose.pos.Y, baseOffset.Z + pose.pos.Z)
-		* baseAngles
-		* CFrame.Angles(math.rad(pose.rot.X), math.rad(pose.rot.Y), math.rad(pose.rot.Z))
+	local pOff = vPos.Value
+	local rOff = vRot.Value
+	local handCamCF = CFrame.new(
+		baseOffset.X + swayPos.X + bobX + pOff.X,
+		baseOffset.Y + swayPos.Y - bobY + breath + airY + pOff.Y,
+		baseOffset.Z + pOff.Z
+	) * baseAngles * CFrame.Angles(math.rad(rOff.X), math.rad(rOff.Y), math.rad(rOff.Z))
 
 	local handRoot = cam.CFrame * handCamCF
-	local bladeRoot = handRoot * CFrame.Angles(0, 0, math.rad(pose.blade))
-	local safeRoot = handRoot * CFrame.Angles(0, 0, math.rad(pose.safe))
-	local biteRoot = bladeRoot * CFrame.new(0.15 * knifeScale, 0, 0) * CFrame.Angles(0, 0, math.rad(pose.bite))
+	local bladeRoot = handRoot * CFrame.Angles(0, 0, math.rad(vBlade.Value))
+	local safeRoot = handRoot * CFrame.Angles(0, 0, math.rad(vSafe.Value))
+	local biteRoot = bladeRoot * CFrame.new(0.15 * knifeScale, 0, 0) * CFrame.Angles(0, 0, math.rad(vBite.Value))
 
 	local roots = {
 		blade = bladeRoot,
@@ -608,22 +694,19 @@ end
 
 function Knife.TriggerInspect()
 	if not enabled then return end
-	animMode = "inspect"
-	animTime = 0
+	playInspectTween()
 end
 
 function Knife.TriggerSlash()
 	if not enabled then return end
-	animMode = "slash"
-	animTime = 0
+	playSlashTween()
 end
 
 function Knife.CycleWeapon()
 	weaponIdx = (weaponIdx % #Knife.Weapons) + 1
 	if enabled then
 		buildModel()
-		animMode = "equip"
-		animTime = 0
+		playEquipTween()
 	end
 	return Knife.Weapons[weaponIdx]
 end
@@ -658,8 +741,7 @@ function Knife.SetEnabled(state)
 	if state then
 		lastCameraCF = workspace.CurrentCamera and workspace.CurrentCamera.CFrame or nil
 		buildModel()
-		animMode = "equip"
-		animTime = 0
+		playEquipTween()
 
 		if not renderConn then
 			renderConn = RunService.RenderStepped:Connect(updateFrame)
@@ -679,6 +761,7 @@ function Knife.SetEnabled(state)
 			end)
 		end
 	else
+		cancelTweens()
 		if renderConn then renderConn:Disconnect(); renderConn = nil end
 		if inputConn then inputConn:Disconnect(); inputConn = nil end
 		if model then model:Destroy(); model = nil end
