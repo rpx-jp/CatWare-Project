@@ -2,7 +2,6 @@ local BASE_URL = "https://raw.githubusercontent.com/rpx-jp/CatWare-Project/main/
 
 local cache = {}
 
--- GitHub上のファイルを読み込む共通関数
 local function import(path)
 	if cache[path] then
 		return cache[path]
@@ -34,22 +33,22 @@ local function import(path)
 	return result
 end
 
--- 他のファイルからも import を使えるようにしたい場合（任意）
 local CatWare = {
-	Version = "1.0.0",
+	Version = "1.0",
 	Import = import,
+	Assets = import("src/utils/assets.lua"),
 }
 
--- 1. 起動アニメーションを実行
-local playStartAnim = import("src/gui/start/init.luau")
+-- 1. 起動アニメーション
+local playStartAnim = import("src/gui/start/init.lua")
 if type(playStartAnim) == "function" then
-	playStartAnim()
+	playStartAnim(CatWare)
 end
 
--- 2. メインUIなどを作ったらここに追加していく
--- local initMainGui = import("src/gui/main/init.luau")
--- if type(initMainGui) == "function" then
--- 	initMainGui(CatWare)
--- end
+-- 2. メインGUIを起動
+local initMainGui = import("src/gui/main/init.lua")
+if type(initMainGui) == "function" then
+	initMainGui(CatWare)
+end
 
 print("[CatWare] Loaded v" .. CatWare.Version)
