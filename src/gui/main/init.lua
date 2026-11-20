@@ -130,7 +130,30 @@ local function initMainGui(CatWare)
 	stageGlass.ImageTransparency = 0.06
 	stageGlass.ZIndex = 10
 	stageGlass.Parent = stageWrap
+-- VisionOS風 ドラッグ用グリップバー
+	local grip = Instance.new("Frame")
+	grip.AnchorPoint = Vector2.new(0.5, 0)
+	grip.Position = UDim2.new(0.5, 0, 0, 7)
+	grip.Size = UDim2.fromOffset(38, 3)
+	grip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	grip.BackgroundTransparency = 0.72
+	grip.BorderSizePixel = 0
+	grip.ZIndex = 8
+	grip.Parent = header
+	Instance.new("UICorner", grip).CornerRadius = UDim.new(1, 0)
 
+	header.MouseEnter:Connect(function()
+		TweenService:Create(grip, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			Size = UDim2.fromOffset(54, 3),
+			BackgroundTransparency = 0.35,
+		}):Play()
+	end)
+	header.MouseLeave:Connect(function()
+		TweenService:Create(grip, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			Size = UDim2.fromOffset(38, 3),
+			BackgroundTransparency = 0.72,
+		}):Play()
+	end)
 	-- ヘッダー（ここをドラッグすると全体が移動！）
 	local header = Instance.new("Frame")
 	header.Name = "StageHeader"
