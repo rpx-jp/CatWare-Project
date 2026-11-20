@@ -270,22 +270,32 @@ local function initMainGui(CatWare)
 	headerSub.ZIndex = 13
 	headerSub.Parent = header
 
-	-- ヘッダー右：クリーンなガラスピル（FPS • ms）
+-- ヘッダー右：上面光沢ガラスピル（FPS • ms）
 	local statPill = Instance.new("TextLabel")
 	statPill.AnchorPoint = Vector2.new(1, 0.5)
 	statPill.Position = UDim2.new(1, -20, 0.5, 2)
-	statPill.Size = UDim2.fromOffset(118, 26)
+	statPill.Size = UDim2.fromOffset(0, 26)
+	statPill.AutomaticSize = Enum.AutomaticSize.X
 	statPill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	statPill.BackgroundTransparency = 0.90
 	statPill.Font = Enum.Font.GothamMedium
 	statPill.Text = "-- fps • -- ms"
 	statPill.TextColor3 = Color3.fromRGB(255, 255, 255)
-	statPill.TextTransparency = 0.25
+	statPill.TextTransparency = 0.15
 	statPill.TextSize = 11
 	statPill.ZIndex = 13
 	statPill.Parent = header
 	Instance.new("UICorner", statPill).CornerRadius = UDim.new(1, 0)
 
+	local spPad = Instance.new("UIPadding")
+	spPad.PaddingLeft = UDim.new(0, 12)
+	spPad.PaddingRight = UDim.new(0, 12)
+	spPad.Parent = statPill
+
+	Theme.GlassStroke(statPill, {
+		Thickness = 1,
+		Transparency = 0.22,
+	})
 	local fc, fl = 0, os.clock()
 	track(RunService.RenderStepped:Connect(function()
 		if not root.Visible then return end
