@@ -229,11 +229,8 @@ local function initMainGui(CatWare)
 	orb.Parent = header
 	Instance.new("UICorner", orb).CornerRadius = UDim.new(1, 0)
 
-	local orbStroke = Instance.new("UIStroke")
-	orbStroke.Color = Color3.fromRGB(255, 255, 255)
-	orbStroke.Thickness = 1
-	orbStroke.Transparency = 0.85
-	orbStroke.Parent = orb
+-- 既存の local orbStroke = ... の5行をこの1行に差し替え
+	Theme.GlassStroke(orb, { Thickness = 1, Transparency = 0.20 })
 
 	local headerIcon = Instance.new("ImageLabel")
 	headerIcon.AnchorPoint = Vector2.new(0.5, 0.5)
