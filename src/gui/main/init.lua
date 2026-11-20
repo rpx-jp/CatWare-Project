@@ -7,9 +7,8 @@ local function initMainGui(CatWare)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local Theme = CatWare.Theme
 	local Notify = CatWare.Notify
-    local Components = CatWare.Import("src/gui/main/components.lua")
-	Components.Theme = Theme
-	
+	local createComponents = CatWare.Import("src/gui/main/components/init.lua")
+	local Components = createComponents(CatWare)
 	local createHub = CatWare.Import("src/gui/main/hub.lua")
 
 	-- 二重起動の掃除
@@ -38,9 +37,10 @@ local function initMainGui(CatWare)
 	local isOpen = true
 	local currentPageId = nil
 
-	-- ScreenGui
+	-- ScreenGui（Siblingにすることで子要素が背景の後ろに沈まなくなる）
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "CatWareGui"
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.IgnoreGuiInset = true
 	screenGui.ResetOnSpawn = false
 	screenGui.DisplayOrder = 500
@@ -62,7 +62,7 @@ local function initMainGui(CatWare)
 	pagePanel.AnchorPoint = Vector2.new(0.5, 0.5)
 	pagePanel.Position = UDim2.fromScale(0.5, 0.5)
 	pagePanel.Size = UDim2.fromOffset(456, 408)
-	pagePanel.BackgroundTransparency = 0.1
+	pagePanel.BackgroundTransparency = 0.08
 	pagePanel.Visible = false
 	pagePanel.ClipsDescendants = true
 	pagePanel.ZIndex = 10
@@ -75,7 +75,7 @@ local function initMainGui(CatWare)
 
 	local ppStroke = Instance.new("UIStroke")
 	ppStroke.Thickness = 1.2
-	ppStroke.Transparency = 0.82
+	ppStroke.Transparency = 0.8
 	Theme.Bind(ppStroke, "Color", "Glow")
 	ppStroke.Parent = pagePanel
 
@@ -93,10 +93,11 @@ local function initMainGui(CatWare)
 	backBtn.AnchorPoint = Vector2.new(0, 0.5)
 	backBtn.Position = UDim2.new(0, 14, 0.5, 0)
 	backBtn.Size = UDim2.fromOffset(74, 30)
-	backBtn.BackgroundTransparency = 0.15
-	backBtn.Font = Enum.Font.GothamMedium
+	backBtn.BackgroundTransparency = 0.12
+	backBtn.Font = Enum.Font.GothamBold
 	backBtn.Text = "← Back"
 	backBtn.TextSize = 12
+	backBtn.AutoButtonColor = false
 	Theme.Bind(backBtn, "BackgroundColor3", "Card")
 	Theme.Bind(backBtn, "TextColor3", "Text")
 	backBtn.Parent = pHeader
@@ -104,6 +105,19 @@ local function initMainGui(CatWare)
 	local bc = Instance.new("UICorner")
 	bc.CornerRadius = UDim.new(0, 9)
 	bc.Parent = backBtn
+
+	local backStroke = Instance.new("UIStroke")
+	backStroke.Thickness = 1
+	backStroke.Transparency = 0.85
+	Theme.Bind(backStroke, "Color", "Glow")
+	backStroke.Parent = backBtn
+
+	backBtn.MouseEnter:Connect(function()
+		TweenService:Create(backBtn, TweenInfo.new(0.15), { BackgroundColor3 = Theme.Current.CardHover }):Play()
+	end)
+	backBtn.MouseLeave:Connect(function()
+		TweenService:Create(backBtn, TweenInfo.new(0.15), { BackgroundColor3 = Theme.Current.Card }):Play()
+	end)
 
 	local pageTitle = Instance.new("TextLabel")
 	pageTitle.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -129,7 +143,7 @@ local function initMainGui(CatWare)
 	div.Position = UDim2.fromOffset(0, 52)
 	div.Size = UDim2.new(1, 0, 0, 1)
 	div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	div.BackgroundTransparency = 0.92
+	div.BackgroundTransparency = 0.9
 	div.BorderSizePixel = 0
 	div.Parent = pagePanel
 
@@ -189,9 +203,9 @@ local function initMainGui(CatWare)
 
 	-- Hub 生成
 	local hub
-	local function openPage(id, label, icon)
+	local function openPage(id, label)
 		currentPageId = id
-		pageTitle.Text = icon .. "  " .. label
+		pageTitle.Text = label
 		for k, f in pairs(pageFrames) do
 			f.Visible = (k == id)
 		end
