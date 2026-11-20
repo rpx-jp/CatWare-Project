@@ -131,13 +131,16 @@ local function initMainGui(CatWare)
 	stageGlass.ZIndex = 10
 	stageGlass.Parent = stageWrap
 -- ヘッダー（ここをドラッグすると全体が移動！）
-	local header = Instance.new("Frame")
+-- ヘッダー（ここをドラッグすると全体が移動！）
+	local header = Instance.new("TextButton")
 	header.Name = "StageHeader"
 	header.Size = UDim2.new(1, 0, 0, 62)
 	header.BackgroundTransparency = 1
-	header.ZIndex = 6
+	header.Text = ""
+	header.AutoButtonColor = false
+	header.Active = true
+	header.ZIndex = 12 -- ← stageGlass(10) より手前にする！
 	header.Parent = stageWrap
-
 	-- ↓ 必ずこの下に grip を置く！
 	local grip = Instance.new("Frame")
 	grip.AnchorPoint = Vector2.new(0.5, 0)
