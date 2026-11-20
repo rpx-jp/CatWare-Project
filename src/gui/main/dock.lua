@@ -275,44 +275,53 @@ local function createDock(parent, CatWare, Theme, navItems, onSelect, onClose)
 	})
 	sepGrad.Parent = sep
 
-	local function makeCtrl(symbol, cx, isClose, cb)
+local function makeCtrl(iconId, cx, isClose, cb)
 		local b = Instance.new("TextButton")
 		b.AnchorPoint = Vector2.new(0.5, 0.5)
 		b.Position = UDim2.fromOffset(cx, 31)
 		b.Size = UDim2.fromOffset(34, 34)
-		b.BackgroundTransparency = 0.38
-		b.Font = Enum.Font.GothamBold
-		b.Text = symbol
-		b.TextSize = 14
+		b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		b.BackgroundTransparency = 0.90
+		b.Text = ""
 		b.AutoButtonColor = false
 		b.ZIndex = 7
-		Theme.Bind(b, "BackgroundColor3", "Card")
-		Theme.Bind(b, "TextColor3", "SubText")
 		b.Parent = dockWrap
 		Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+
+		local ic = Instance.new("ImageLabel")
+		ic.AnchorPoint = Vector2.new(0.5, 0.5)
+		ic.Position = UDim2.fromScale(0.5, 0.5)
+		ic.Size = UDim2.fromOffset(16, 16)
+		ic.BackgroundTransparency = 1
+		ic.Image = Icons.Get(iconId)
+		ic.ImageColor3 = Color3.fromRGB(255, 255, 255)
+		ic.ImageTransparency = 0.25
+		ic.ScaleType = Enum.ScaleType.Fit
+		ic.ZIndex = 8
+		ic.Parent = b
 
 		local sc = Instance.new("UIScale", b)
 		b.MouseEnter:Connect(function()
 			TweenService:Create(sc, hoverIn, { Scale = 1.12 }):Play()
+			TweenService:Create(ic, hoverIn, { ImageTransparency = 0 }):Play()
 			TweenService:Create(b, hoverIn, {
-				BackgroundColor3 = isClose and Theme.Current.Danger or Theme.Current.CardHover,
-				BackgroundTransparency = 0.1,
-				TextColor3 = Color3.fromRGB(255, 255, 255),
+				BackgroundColor3 = isClose and Color3.fromRGB(255, 85, 80) or Color3.fromRGB(255, 255, 255),
+				BackgroundTransparency = isClose and 0.22 or 0.80,
 			}):Play()
 		end)
 		b.MouseLeave:Connect(function()
 			TweenService:Create(sc, hoverOut, { Scale = 1 }):Play()
+			TweenService:Create(ic, hoverOut, { ImageTransparency = 0.25 }):Play()
 			TweenService:Create(b, hoverOut, {
-				BackgroundColor3 = Theme.Current.Card,
-				BackgroundTransparency = 0.38,
-				TextColor3 = Theme.Current.SubText,
+				BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+				BackgroundTransparency = 0.90,
 			}):Play()
 		end)
 		b.MouseButton1Click:Connect(cb)
 	end
 
-	makeCtrl("—", 349, false, function() onClose(true) end)
-	makeCtrl("×", 395, true, function() onClose(false) end)
+	makeCtrl("minus", 349, false, function() onClose(true) end)
+	makeCtrl("close", 395, true, function() onClose(false) end)
 
 	local function setActive(id)
 		activeId = id
