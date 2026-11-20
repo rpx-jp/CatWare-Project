@@ -130,14 +130,6 @@ local function initMainGui(CatWare)
 	Theme.Bind(pageTitle, "TextColor3", "Text")
 	pageTitle.Parent = pHeader
 
-	local hLogo = Instance.new("ImageLabel")
-	hLogo.AnchorPoint = Vector2.new(1, 0.5)
-	hLogo.Position = UDim2.new(1, -14, 0.5, 0)
-	hLogo.Size = UDim2.fromOffset(26, 26)
-	hLogo.BackgroundTransparency = 1
-	hLogo.Image = logoAsset
-	hLogo.ScaleType = Enum.ScaleType.Fit
-	hLogo.Parent = pHeader
 
 	local div = Instance.new("Frame")
 	div.Position = UDim2.fromOffset(0, 52)
