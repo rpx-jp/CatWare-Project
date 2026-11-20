@@ -1,4 +1,7 @@
-local BASE_URL = "https://raw.githubusercontent.com/rpx-jp/CatWare-Project/main/"
+local DEV_MODE = true
+local BASE_URL = DEV_MODE
+	and "http://127.0.0.1:3000/"
+	or "https://raw.githubusercontent.com/rpx-jp/CatWare-Project/main/"
 
 local cache = {}
 
@@ -7,7 +10,7 @@ local function import(path)
 		return cache[path]
 	end
 
-    local url = BASE_URL .. path .. "?t=" .. tostring(os.time())
+	local url = BASE_URL .. path .. "?t=" .. tostring(os.time())
 	local ok, source = pcall(function()
 		return game:HttpGet(url)
 	end)
@@ -33,10 +36,16 @@ local function import(path)
 	return result
 end
 
+local Assets = import("src/utils/assets.lua")
+if Assets and Assets.SetBaseUrl then
+	Assets.SetBaseUrl(BASE_URL)
+end
+
 local CatWare = {
-	Version = "1.0",
+	Version = "2.0",
+	BaseUrl = BASE_URL,
 	Import = import,
-	Assets = import("src/utils/assets.lua"),
+	Assets = Assets,
 	Theme = import("src/utils/theme.lua"),
 	Notify = import("src/utils/notify.lua"),
 }
@@ -53,4 +62,4 @@ if type(initMainGui) == "function" then
 	initMainGui(CatWare)
 end
 
-print("[CatWare] Loaded v" .. CatWare.Version)
+print("[CatWare] Loaded v" .. CatWare.Version .. " (" .. BASE_URL .. ")")
