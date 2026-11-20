@@ -7,11 +7,11 @@ local function initMainGui(CatWare)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local Theme = CatWare.Theme
 	local Notify = CatWare.Notify
+	local Shadow = CatWare.Import("src/utils/shadow.lua")
 	local createComponents = CatWare.Import("src/gui/main/components/init.lua")
 	local Components = createComponents(CatWare)
 	local createHub = CatWare.Import("src/gui/main/hub.lua")
 
-	-- 二重起動の掃除
 	if playerGui:FindFirstChild("CatWareGui") then
 		playerGui.CatWareGui:Destroy()
 	end
@@ -20,13 +20,13 @@ local function initMainGui(CatWare)
 	end
 
 	local logoAsset = CatWare.Assets.Get("cw.png")
+	local shadowAsset = CatWare.Assets.Get("shadow.png")
 	local connections = {}
 	local function track(conn)
 		table.insert(connections, conn)
 		return conn
 	end
 
-	-- 背景ぼかし（BlurEffect）
 	local blur = Instance.new("BlurEffect")
 	blur.Name = "CatWareBlur"
 	blur.Size = 0
@@ -37,7 +37,6 @@ local function initMainGui(CatWare)
 	local isOpen = true
 	local currentPageId = nil
 
-	-- ScreenGui（Siblingにすることで子要素が背景の後ろに沈まなくなる）
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "CatWareGui"
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -48,7 +47,6 @@ local function initMainGui(CatWare)
 
 	Notify.Init(screenGui, logoAsset, Theme)
 
-	-- 画面暗転オーバーレイ
 	local dim = Instance.new("Frame")
 	dim.Size = UDim2.fromScale(1, 1)
 	dim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -56,18 +54,36 @@ local function initMainGui(CatWare)
 	dim.ZIndex = 1
 	dim.Parent = screenGui
 
-	-- 詳細ページパネル（2×2タイルをクリックした時に開く）
+	-- 詳細パネル＋影のラッパー（影と本体が一緒にスケールする）
+	local pageWrap = Instance.new("Frame")
+	pageWrap.Name = "DetailPanelWrap"
+	pageWrap.AnchorPoint = Vector2.new(0.5, 0.5)
+	pageWrap.Position = UDim2.fromScale(0.5, 0.5)
+	pageWrap.Size = UDim2.fromOffset(456, 408)
+	pageWrap.BackgroundTransparency = 1
+	pageWrap.Visible = false
+	pageWrap.ZIndex = 10
+	pageWrap.Parent = screenGui
+
+	local pageScale = Instance.new("UIScale")
+	pageScale.Scale = 0.92
+	pageScale.Parent = pageWrap
+
+	Shadow.Create(pageWrap, shadowAsset, {
+		Padding = 30,
+		OffsetY = 10,
+		Transparency = 0.28,
+		ZIndex = 1,
+	})
+
 	local pagePanel = Instance.new("Frame")
 	pagePanel.Name = "DetailPanel"
-	pagePanel.AnchorPoint = Vector2.new(0.5, 0.5)
-	pagePanel.Position = UDim2.fromScale(0.5, 0.5)
-	pagePanel.Size = UDim2.fromOffset(456, 408)
+	pagePanel.Size = UDim2.fromScale(1, 1)
 	pagePanel.BackgroundTransparency = 0.08
-	pagePanel.Visible = false
 	pagePanel.ClipsDescendants = true
-	pagePanel.ZIndex = 10
+	pagePanel.ZIndex = 2
 	Theme.Bind(pagePanel, "BackgroundColor3", "Tile")
-	pagePanel.Parent = screenGui
+	pagePanel.Parent = pageWrap
 
 	local ppCorner = Instance.new("UICorner")
 	ppCorner.CornerRadius = UDim.new(0, 16)
@@ -78,10 +94,6 @@ local function initMainGui(CatWare)
 	ppStroke.Transparency = 0.8
 	Theme.Bind(ppStroke, "Color", "Glow")
 	ppStroke.Parent = pagePanel
-
-	local pageScale = Instance.new("UIScale")
-	pageScale.Scale = 0.92
-	pageScale.Parent = pagePanel
 
 	-- 詳細ページヘッダー
 	local pHeader = Instance.new("Frame")
@@ -101,10 +113,7 @@ local function initMainGui(CatWare)
 	Theme.Bind(backBtn, "BackgroundColor3", "Card")
 	Theme.Bind(backBtn, "TextColor3", "Text")
 	backBtn.Parent = pHeader
-
-	local bc = Instance.new("UICorner")
-	bc.CornerRadius = UDim.new(0, 9)
-	bc.Parent = backBtn
+	Instance.new("UICorner", backBtn).CornerRadius = UDim.new(0, 9)
 
 	local backStroke = Instance.new("UIStroke")
 	backStroke.Thickness = 1
@@ -130,7 +139,6 @@ local function initMainGui(CatWare)
 	Theme.Bind(pageTitle, "TextColor3", "Text")
 	pageTitle.Parent = pHeader
 
-
 	local div = Instance.new("Frame")
 	div.Position = UDim2.fromOffset(0, 52)
 	div.Size = UDim2.new(1, 0, 0, 1)
@@ -139,7 +147,7 @@ local function initMainGui(CatWare)
 	div.BorderSizePixel = 0
 	div.Parent = pagePanel
 
-	-- 各ページ格納用 ScrollingFrame
+	-- 各ページ格納用
 	local pageFrames = {}
 	local function makePageContainer(id)
 		local sf = Instance.new("ScrollingFrame")
@@ -170,22 +178,32 @@ local function initMainGui(CatWare)
 		return sf
 	end
 
-	-- 最小化アイコン
+	-- 最小化アイコン＋ドロップシャドウ
+	local miniWrap = Instance.new("Frame")
+	miniWrap.AnchorPoint = Vector2.new(0, 0.5)
+	miniWrap.Position = UDim2.new(0, 18, 0.5, 0)
+	miniWrap.Size = UDim2.fromOffset(48, 48)
+	miniWrap.BackgroundTransparency = 1
+	miniWrap.Visible = false
+	miniWrap.ZIndex = 30
+	miniWrap.Parent = screenGui
+
+	Shadow.Create(miniWrap, shadowAsset, {
+		Padding = 18,
+		OffsetY = 5,
+		Transparency = 0.35,
+		ZIndex = 1,
+	})
+
 	local miniBtn = Instance.new("ImageButton")
-	miniBtn.AnchorPoint = Vector2.new(0, 0.5)
-	miniBtn.Position = UDim2.new(0, 18, 0.5, 0)
-	miniBtn.Size = UDim2.fromOffset(48, 48)
+	miniBtn.Size = UDim2.fromScale(1, 1)
 	miniBtn.BackgroundTransparency = 0.12
 	miniBtn.Image = logoAsset
 	miniBtn.ScaleType = Enum.ScaleType.Fit
-	miniBtn.Visible = false
-	miniBtn.ZIndex = 30
+	miniBtn.ZIndex = 2
 	Theme.Bind(miniBtn, "BackgroundColor3", "Tile")
-	miniBtn.Parent = screenGui
-
-	local mc = Instance.new("UICorner")
-	mc.CornerRadius = UDim.new(0, 14)
-	mc.Parent = miniBtn
+	miniBtn.Parent = miniWrap
+	Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(0, 14)
 
 	local ms = Instance.new("UIStroke")
 	ms.Thickness = 1.2
@@ -206,7 +224,7 @@ local function initMainGui(CatWare)
 		task.delay(0.15, function()
 			if currentPageId then
 				hub.Frame.Visible = false
-				pagePanel.Visible = true
+				pageWrap.Visible = true
 				pageScale.Scale = baseScale * 0.92
 				TweenService:Create(pageScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 					Scale = baseScale,
@@ -220,7 +238,7 @@ local function initMainGui(CatWare)
 		TweenService:Create(pageScale, TweenInfo.new(0.16, Enum.EasingStyle.Quint), { Scale = baseScale * 0.92 }):Play()
 		task.delay(0.14, function()
 			if not currentPageId and isOpen then
-				pagePanel.Visible = false
+				pageWrap.Visible = false
 				hub.Frame.Visible = true
 				hub.Scale.Scale = baseScale * 0.92
 				TweenService:Create(hub.Scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
@@ -231,19 +249,18 @@ local function initMainGui(CatWare)
 	end
 
 	backBtn.MouseButton1Click:Connect(backToHub)
-
 	hub = createHub(screenGui, CatWare, Theme, openPage)
 
 	-- 全体の開閉
 	local function setOpen(state, showMini)
 		isOpen = state
 		if state then
-			miniBtn.Visible = false
+			miniWrap.Visible = false
 			dim.Visible = true
 			TweenService:Create(blur, TweenInfo.new(0.28), { Size = blurTarget }):Play()
 			TweenService:Create(dim, TweenInfo.new(0.28), { BackgroundTransparency = 0.58 }):Play()
 			if currentPageId then
-				pagePanel.Visible = true
+				pageWrap.Visible = true
 				pageScale.Scale = baseScale * 0.92
 				TweenService:Create(pageScale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = baseScale }):Play()
 			else
@@ -259,10 +276,10 @@ local function initMainGui(CatWare)
 			task.delay(0.2, function()
 				if not isOpen then
 					hub.Frame.Visible = false
-					pagePanel.Visible = false
+					pageWrap.Visible = false
 					dim.Visible = false
 					if showMini then
-						miniBtn.Visible = true
+						miniWrap.Visible = true
 					end
 				end
 			end)
@@ -273,7 +290,6 @@ local function initMainGui(CatWare)
 		setOpen(true, false)
 	end)
 
-	-- Unload 関数
 	local function unload()
 		for _, c in ipairs(connections) do
 			pcall(function()
@@ -284,7 +300,6 @@ local function initMainGui(CatWare)
 		screenGui:Destroy()
 	end
 
-	-- 各ページに共有するコンテキスト
 	local ctx = {
 		CatWare = CatWare,
 		Theme = Theme,
@@ -312,14 +327,12 @@ local function initMainGui(CatWare)
 		Unload = unload,
 	}
 
-	-- 4ページを読み込んで構築
-	local pageList = {
+	for _, p in ipairs({
 		{ id = "visuals",  path = "src/gui/main/pages/visuals.lua" },
 		{ id = "models",   path = "src/gui/main/pages/models.lua" },
 		{ id = "settings", path = "src/gui/main/pages/settings.lua" },
 		{ id = "themes",   path = "src/gui/main/pages/themes.lua" },
-	}
-	for _, p in ipairs(pageList) do
+	}) do
 		local container = makePageContainer(p.id)
 		local builder = CatWare.Import(p.path)
 		if type(builder) == "function" then
@@ -327,7 +340,6 @@ local function initMainGui(CatWare)
 		end
 	end
 
-	-- キーバインド（RightShiftで開閉 / Backspaceで戻る）
 	track(UserInputService.InputBegan:Connect(function(input, gp)
 		if gp then
 			return
