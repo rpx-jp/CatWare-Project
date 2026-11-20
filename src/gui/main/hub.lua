@@ -4,6 +4,11 @@ local TweenService = game:GetService("TweenService")
 local function createHub(parent, CatWare, Theme, onSelectPage)
 	local player = Players.LocalPlayer
 	local logoAsset = CatWare.Assets.Get("cw.png")
+	local glowAsset = CatWare.Assets.Get("glow.png")
+	if glowAsset == "" then
+		glowAsset = "rbxassetid://10822615828" -- 万が一のフォールバック光テクスチャ
+	end
+
 	local Icons = CatWare.Import("src/gui/main/icons.lua")
 
 	local hub = Instance.new("Frame")
@@ -39,6 +44,9 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		{ id = "themes",   label = "Themes",    pos = UDim2.fromOffset(236, 212) },
 	}
 
+	local hoverIn = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local hoverOut = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
 	for _, def in ipairs(tileDefs) do
 		local tile = Instance.new("TextButton")
 		tile.Name = def.id
@@ -68,28 +76,22 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		tScale.Scale = 1
 		tScale.Parent = tile
 
-		-- 発光グロー（3層）
-		local glows = {}
-		for _, gc in ipairs({
-			{ size = 128, base = 0.94, hover = 0.88 },
-			{ size = 82,  base = 0.90, hover = 0.82 },
-			{ size = 46,  base = 0.86, hover = 0.76 },
-		}) do
-			local g = Instance.new("Frame")
-			g.AnchorPoint = Vector2.new(0.5, 0.5)
-			g.Position = UDim2.new(0.5, 0, 0.42, 0)
-			g.Size = UDim2.fromOffset(gc.size, gc.size)
-			g.BackgroundTransparency = gc.base
-			g.BorderSizePixel = 0
-			g.ZIndex = 6
-			Theme.Bind(g, "BackgroundColor3", "Glow")
-			g.Parent = tile
-			Instance.new("UICorner", g).CornerRadius = UDim.new(1, 0)
-			table.insert(glows, { frame = g, base = gc.base, hover = gc.hover })
-		end
+		-- 滑らかな丸い光（ラジアルグロー）
+		local glow = Instance.new("ImageLabel")
+		glow.Name = "SoftGlow"
+		glow.AnchorPoint = Vector2.new(0.5, 0.5)
+		glow.Position = UDim2.new(0.5, 0, 0.42, 0)
+		glow.Size = UDim2.fromOffset(145, 145)
+		glow.BackgroundTransparency = 1
+		glow.Image = glowAsset
+		glow.ImageTransparency = 0.72
+		glow.ScaleType = Enum.ScaleType.Fit
+		glow.ZIndex = 6
+		Theme.Bind(glow, "ImageColor3", "Glow")
+		glow.Parent = tile
 
-		-- 図形アイコン（文字化けなし）
-		Icons.Create(def.id, tile, Theme)
+		-- Lucide アイコン
+		local icon = Icons.Create(def.id, tile, Theme)
 
 		local nameLbl = Instance.new("TextLabel")
 		nameLbl.AnchorPoint = Vector2.new(0.5, 0)
@@ -99,24 +101,44 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		nameLbl.Font = Enum.Font.GothamBold
 		nameLbl.Text = def.label
 		nameLbl.TextSize = 16
+		nameLbl.TextTransparency = 0.12
 		nameLbl.ZIndex = 7
 		Theme.Bind(nameLbl, "TextColor3", "Text")
 		nameLbl.Parent = tile
 
+		-- ホバー：明るく発光 ＋ サイズ拡大Tween
 		tile.MouseEnter:Connect(function()
-			TweenService:Create(tScale, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Scale = 1.03 }):Play()
-			TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.5 }):Play()
-			for _, g in ipairs(glows) do
-				TweenService:Create(g.frame, TweenInfo.new(0.2), { BackgroundTransparency = g.hover }):Play()
-			end
+			TweenService:Create(tScale, hoverIn, { Scale = 1.045 }):Play()
+			TweenService:Create(tile, hoverIn, { BackgroundColor3 = Theme.Current.CardHover }):Play()
+			TweenService:Create(stroke, hoverIn, { Transparency = 0.35 }):Play()
+			TweenService:Create(glow, hoverIn, {
+				Size = UDim2.fromOffset(225, 225),
+				ImageTransparency = 0.35,
+			}):Play()
+			TweenService:Create(icon, hoverIn, {
+				Size = UDim2.fromOffset(48, 48),
+				ImageTransparency = 0,
+				ImageColor3 = Color3.fromRGB(255, 255, 255),
+			}):Play()
+			TweenService:Create(nameLbl, hoverIn, { TextTransparency = 0 }):Play()
 		end)
+
 		tile.MouseLeave:Connect(function()
-			TweenService:Create(tScale, TweenInfo.new(0.2, Enum.EasingStyle.Quint), { Scale = 1 }):Play()
-			TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.84 }):Play()
-			for _, g in ipairs(glows) do
-				TweenService:Create(g.frame, TweenInfo.new(0.2), { BackgroundTransparency = g.base }):Play()
-			end
+			TweenService:Create(tScale, hoverOut, { Scale = 1 }):Play()
+			TweenService:Create(tile, hoverOut, { BackgroundColor3 = Theme.Current.Tile }):Play()
+			TweenService:Create(stroke, hoverOut, { Transparency = 0.84 }):Play()
+			TweenService:Create(glow, hoverOut, {
+				Size = UDim2.fromOffset(145, 145),
+				ImageTransparency = 0.72,
+			}):Play()
+			TweenService:Create(icon, hoverOut, {
+				Size = UDim2.fromOffset(40, 40),
+				ImageTransparency = 0.15,
+				ImageColor3 = Theme.Current.Accent,
+			}):Play()
+			TweenService:Create(nameLbl, hoverOut, { TextTransparency = 0.12 }):Play()
 		end)
+
 		tile.MouseButton1Click:Connect(function()
 			onSelectPage(def.id, def.label)
 		end)
