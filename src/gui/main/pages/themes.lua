@@ -2,19 +2,19 @@ return function(page, ctx)
 	local C = ctx.Components
 	local Theme = ctx.Theme
 
-	C.Section(page, "Color Presets")
+	C.Section(page, "Glass Material")
 
 	local order = {
-		{ key = "Obsidian", desc = "黒ガラス × ホワイト発光" },
-		{ key = "IceFrost", desc = "cw.png に合わせたアイスブルー" },
-		{ key = "Sakura",   desc = "ダーク × サクラピンク発光" },
-		{ key = "Violet",   desc = "ミッドナイト × バイオレット" },
+		{ key = "SpatialGlass", desc = "Vision Pro 標準のニュートラルガラス" },
+		{ key = "FrostedMist",  desc = "淡い氷ブルーのフロストガラス" },
+		{ key = "WarmTitanium", desc = "温かみのあるチタニウムガラス" },
+		{ key = "Midnight",     desc = "映画鑑賞向けの落ち着いた暗めガラス" },
 	}
 
-	local badges = {}
-	local function refreshBadges()
-		for k, b in pairs(badges) do
-			b.Visible = (Theme.Current == Theme.Presets[k])
+	local checks = {}
+	local function refresh()
+		for k, c in pairs(checks) do
+			c.Visible = (Theme.Current == Theme.Presets[k])
 		end
 	end
 
@@ -22,39 +22,40 @@ return function(page, ctx)
 		local preset = Theme.Presets[item.key]
 		local btn = C.Button(page, preset.Name, item.desc, false, Theme, function()
 			Theme.SetPreset(item.key)
-			refreshBadges()
-			ctx.Notify.Send("Theme", preset.Name .. " に切り替えました", 2)
+			refresh()
 		end)
 
-		-- 3色ミニパレット（右矢印 › と重ならない位置）
-		local palette = { preset.Tile, preset.CardHover, preset.Accent }
-		for i, col in ipairs(palette) do
-			local dot = Instance.new("Frame")
-			dot.AnchorPoint = Vector2.new(1, 0.5)
-			dot.Position = UDim2.new(1, -34 - (3 - i) * 14, 0.5, 0)
-			dot.Size = UDim2.fromOffset(11, 11)
-			dot.BackgroundColor3 = col
-			dot.BorderSizePixel = 0
-			dot.Parent = btn
-			Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-		end
+		local chev = btn:FindFirstChild("Chevron")
+		if chev then chev.Visible = false end
 
-		-- 選択中バッジ
-		local activeBadge = Instance.new("TextLabel")
-		activeBadge.AnchorPoint = Vector2.new(1, 0.5)
-		activeBadge.Position = UDim2.new(1, -80, 0.5, 0)
-		activeBadge.Size = UDim2.fromOffset(48, 18)
-		activeBadge.BackgroundColor3 = preset.Accent
-		activeBadge.BackgroundTransparency = 0.82
-		activeBadge.Font = Enum.Font.GothamBold
-		activeBadge.Text = "ACTIVE"
-		activeBadge.TextColor3 = preset.Accent
-		activeBadge.TextSize = 9
-		activeBadge.Parent = btn
-		Instance.new("UICorner", activeBadge).CornerRadius = UDim.new(1, 0)
+		-- ガラス質感サンプルの丸チップ
+		local swatch = Instance.new("Frame")
+		swatch.AnchorPoint = Vector2.new(1, 0.5)
+		swatch.Position = UDim2.new(1, -16, 0.5, 0)
+		swatch.Size = UDim2.fromOffset(22, 22)
+		swatch.BackgroundColor3 = preset.Tile
+		swatch.Parent = btn
+		Instance.new("UICorner", swatch).CornerRadius = UDim.new(1, 0)
 
-		badges[item.key] = activeBadge
+		local swStroke = Instance.new("UIStroke")
+		swStroke.Color = Color3.fromRGB(255, 255, 255)
+		swStroke.Thickness = 1
+		swStroke.Transparency = 0.65
+		swStroke.Parent = swatch
+
+		local check = Instance.new("TextLabel")
+		check.AnchorPoint = Vector2.new(1, 0.5)
+		check.Position = UDim2.new(1, -48, 0.5, 0)
+		check.Size = UDim2.fromOffset(20, 20)
+		check.BackgroundTransparency = 1
+		check.Font = Enum.Font.GothamBold
+		check.Text = "✓"
+		check.TextColor3 = Color3.fromRGB(255, 255, 255)
+		check.TextSize = 15
+		check.Parent = btn
+
+		checks[item.key] = check
 	end
 
-	refreshBadges()
+	refresh()
 end
