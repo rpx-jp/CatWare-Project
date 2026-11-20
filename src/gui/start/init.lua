@@ -4,9 +4,9 @@ local TweenService = game:GetService("TweenService")
 local FOLDER_NAME = "Luna"
 local ASSETS_FOLDER = FOLDER_NAME .. "/assets"
 local LOGO_PATH = ASSETS_FOLDER .. "/cw.png"
+-- cw.png（メインロゴ）
+local LOGO_URL = "https://raw.githubusercontent.com/rpx-jp/CatWare-Project/main/src/assets/cw.png"
 
--- GitHubに上げた cw.png の Raw URL に書き換えてください
-local LOGO_URL = "https://raw.githubusercontent.com/ユーザー名/リポジトリ名/main/src/assets/cw.png"
 
 -- 1. フォルダとPNGファイルの保存（初回のみダウンロード）
 local function loadLogoAsset(): string
