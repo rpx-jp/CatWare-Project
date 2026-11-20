@@ -19,7 +19,7 @@ local function createDock(parent, CatWare, Theme, navItems, onSelect, onClose)
 	dockWrap.Position = UDim2.new(0.5, 0, 1, 0)
 	dockWrap.Size = UDim2.fromOffset(428, 62)
 	dockWrap.BackgroundTransparency = 1
-	dockWrap.ZIndex = 15
+	dockWrap.ZIndex = 20
 	dockWrap.Parent = parent
 
 	local dockShadow = Instance.new("ImageLabel")
@@ -94,11 +94,11 @@ local function createDock(parent, CatWare, Theme, navItems, onSelect, onClose)
 		btn.ZIndex = 6
 		btn.Parent = dockWrap
 
-		-- スマートツールチップ
+		-- 高さを抑えてステージと重ならないスマートツールチップ
 		local tip = Instance.new("TextLabel")
 		tip.AnchorPoint = Vector2.new(0.5, 1)
-		tip.Position = UDim2.new(0.5, 0, 0, -10)
-		tip.Size = UDim2.fromOffset(0, 22)
+		tip.Position = UDim2.new(0.5, 0, 0, -5)
+		tip.Size = UDim2.fromOffset(0, 20)
 		tip.AutomaticSize = Enum.AutomaticSize.X
 		tip.BackgroundColor3 = Theme.Current.Tile
 		tip.BackgroundTransparency = 1
@@ -135,7 +135,6 @@ local function createDock(parent, CatWare, Theme, navItems, onSelect, onClose)
 		visualScale.Scale = 1
 
 		if item.isAvatar then
-			-- ギザギザが出ない滑らかな二重丸リング
 			local ring = Instance.new("Frame")
 			ring.AnchorPoint = Vector2.new(0.5, 0.5)
 			ring.Position = UDim2.fromScale(0.5, 0.5)
@@ -197,7 +196,7 @@ local function createDock(parent, CatWare, Theme, navItems, onSelect, onClose)
 			}):Play()
 			tip.BackgroundColor3 = Theme.Current.Tile
 			TweenService:Create(tip, hoverIn, {
-				Position = UDim2.new(0.5, 0, 0, -18),
+				Position = UDim2.new(0.5, 0, 0, -11),
 				BackgroundTransparency = 0.16,
 				TextTransparency = 0,
 			}):Play()
@@ -222,7 +221,7 @@ local function createDock(parent, CatWare, Theme, navItems, onSelect, onClose)
 				ImageTransparency = isAct and 0.78 or 1,
 			}):Play()
 			TweenService:Create(tip, hoverOut, {
-				Position = UDim2.new(0.5, 0, 0, -10),
+				Position = UDim2.new(0.5, 0, 0, -5),
 				BackgroundTransparency = 1,
 				TextTransparency = 1,
 			}):Play()
@@ -293,19 +292,27 @@ local function createDock(parent, CatWare, Theme, navItems, onSelect, onClose)
 		local sc = Instance.new("UIScale", b)
 		b.MouseEnter:Connect(function()
 			TweenService:Create(sc, hoverIn, { Scale = 1.12 }):Play()
-			TweenService:Create(ic, hoverIn, { ImageTransparency = 0 }):Play()
+			TweenService:Create(ic, hoverIn, {
+				ImageTransparency = 0,
+				ImageColor3 = isClose and Color3.fromRGB(255, 195, 190) or Color3.fromRGB(255, 255, 255),
+				Rotation = isClose and 90 or 0,
+			}):Play()
 			TweenService:Create(st, hoverIn, {
 				Transparency = 0,
-				Color = isClose and Color3.fromRGB(255, 140, 135) or Color3.fromRGB(255, 255, 255),
+				Color = isClose and Color3.fromRGB(255, 150, 145) or Color3.fromRGB(255, 255, 255),
 			}):Play()
 			TweenService:Create(b, hoverIn, {
-				BackgroundColor3 = isClose and Color3.fromRGB(255, 85, 80) or Color3.fromRGB(255, 255, 255),
-				BackgroundTransparency = isClose and 0.22 or 0.80,
+				BackgroundColor3 = isClose and Color3.fromRGB(255, 100, 95) or Color3.fromRGB(255, 255, 255),
+				BackgroundTransparency = isClose and 0.72 or 0.78,
 			}):Play()
 		end)
 		b.MouseLeave:Connect(function()
 			TweenService:Create(sc, hoverOut, { Scale = 1 }):Play()
-			TweenService:Create(ic, hoverOut, { ImageTransparency = 0.25 }):Play()
+			TweenService:Create(ic, hoverOut, {
+				ImageTransparency = 0.25,
+				ImageColor3 = Color3.fromRGB(255, 255, 255),
+				Rotation = 0,
+			}):Play()
 			TweenService:Create(st, hoverOut, {
 				Transparency = 0.22,
 				Color = Color3.fromRGB(255, 255, 255),
