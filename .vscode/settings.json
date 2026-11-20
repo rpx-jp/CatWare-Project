@@ -1,0 +1,11 @@
+{
+  "files.autoSave": "off",
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": ".*",
+        "cmd": "git add . && git commit -m \"auto update\" && git push"
+      }
+    ]
+  }
+}
