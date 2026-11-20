@@ -5,9 +5,9 @@ local holder = nil
 local ThemeRef = nil
 
 local ICONS = {
-	bell  = "rbxassetid://10709775704", -- lucide-bell
-	check = "rbxassetid://10709790644", -- lucide-check
-	info  = "rbxassetid://10723415903", -- lucide-info
+	bell  = "rbxassetid://10709775704",
+	check = "rbxassetid://10709790644",
+	info  = "rbxassetid://10723415903",
 }
 
 function Notify.Init(screenGui, _logo, Theme)
@@ -31,9 +31,7 @@ function Notify.Init(screenGui, _logo, Theme)
 end
 
 function Notify.Send(titleText, bodyText, duration, iconKey)
-	if not holder or not holder.Parent then
-		return
-	end
+	if not holder or not holder.Parent then return end
 	duration = duration or 3
 	local cur = ThemeRef.Current
 
@@ -47,9 +45,8 @@ function Notify.Send(titleText, bodyText, duration, iconKey)
 	toast.Parent = holder
 	Instance.new("UICorner", toast).CornerRadius = UDim.new(0, 18)
 
-local stroke = ThemeRef.GlassStroke(toast, { Transparency = 1 })
+	local stroke = ThemeRef.GlassStroke(toast, { Transparency = 1 })
 
-	-- Lucide アイコン用の白透け丸ガラスオーブ
 	local orb = Instance.new("Frame")
 	orb.AnchorPoint = Vector2.new(0, 0.5)
 	orb.Position = UDim2.new(0, 12, 0.5, 0)
@@ -104,7 +101,6 @@ local stroke = ThemeRef.GlassStroke(toast, { Transparency = 1 })
 	sc.Scale = 0.90
 	sc.Parent = toast
 
-	-- ふわっと出現
 	local inInfo = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	local fadeIn = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	TweenService:Create(sc, inInfo, { Scale = 1 }):Play()
