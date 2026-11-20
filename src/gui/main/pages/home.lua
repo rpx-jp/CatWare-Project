@@ -7,19 +7,13 @@ return function(page, ctx)
 	local Theme = ctx.Theme
 	local C = ctx.Components
 
-	-- クリーンなガラスプロフィールカード
 	local hero = Instance.new("Frame")
 	hero.Size = UDim2.new(1, 0, 0, 68)
 	hero.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	hero.BackgroundTransparency = 0.91
 	hero.Parent = page
 	Instance.new("UICorner", hero).CornerRadius = UDim.new(0, 16)
-
-	local hStroke = Instance.new("UIStroke")
-	hStroke.Color = Color3.fromRGB(255, 255, 255)
-	hStroke.Thickness = 1
-	hStroke.Transparency = 0.90
-	hStroke.Parent = hero
+	Theme.GlassStroke(hero, { Transparency = 0.22 })
 
 	local avatar = Instance.new("ImageLabel")
 	avatar.AnchorPoint = Vector2.new(0, 0.5)
@@ -60,7 +54,6 @@ return function(page, ctx)
 	uname.TextXAlignment = Enum.TextXAlignment.Left
 	uname.Parent = hero
 
-	-- 静かなガラス数値カード（ネオンなし・純白）
 	local statsRow = Instance.new("Frame")
 	statsRow.Size = UDim2.new(1, 0, 0, 62)
 	statsRow.BackgroundTransparency = 1
@@ -74,12 +67,7 @@ return function(page, ctx)
 		box.BackgroundTransparency = 0.91
 		box.Parent = statsRow
 		Instance.new("UICorner", box).CornerRadius = UDim.new(0, 14)
-
-		local st = Instance.new("UIStroke")
-		st.Color = Color3.fromRGB(255, 255, 255)
-		st.Thickness = 1
-		st.Transparency = 0.90
-		st.Parent = box
+		Theme.GlassStroke(box, { Transparency = 0.22 })
 
 		local t = Instance.new("TextLabel")
 		t.Position = UDim2.fromOffset(16, 10)
