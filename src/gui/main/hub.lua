@@ -5,7 +5,6 @@ local Stats = game:GetService("Stats")
 
 local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClose)
 	local player = Players.LocalPlayer
-	local logoAsset = CatWare.Assets.Get("cw.png")
 	local shadowAsset = CatWare.Assets.Get("shadow.png")
 	local glowAsset = CatWare.Assets.Get("glow.png")
 	if glowAsset == "" then
@@ -34,6 +33,8 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 
 	-- 共通のガラスカード土台を作る関数
 	local function makeCardHolder(name, cx, cy, w, h, cornerRadius)
+		local r = cornerRadius or 16
+
 		local holder = Instance.new("Frame")
 		holder.Name = name .. "_Holder"
 		holder.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -65,9 +66,8 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 		Theme.Bind(card, "BackgroundColor3", "Tile")
 		card.Parent = holder
 
-		Instance.new("UICorner", card).CornerRadius = UDim.new(0, cornerRadius or 16)
+		Instance.new("UICorner", card).CornerRadius = UDim.new(0, r)
 
-		-- 上からほのかに光るガラスグラデーション
 		local grad = Instance.new("UIGradient")
 		grad.Rotation = 90
 		grad.Color = ColorSequence.new({
@@ -82,7 +82,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 		Theme.Bind(stroke, "Color", "Glow")
 		stroke.Parent = card
 
-		-- ホバー時に明るく光らせる白いガラス光沢（絶対に黒くならない）
+		-- ホバー時の白いガラス光沢（同じ角丸を付けて角のはみ出しを防止）
 		local sheen = Instance.new("Frame")
 		sheen.Name = "HoverSheen"
 		sheen.Size = UDim2.fromScale(1, 1)
@@ -91,6 +91,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 		sheen.BorderSizePixel = 0
 		sheen.ZIndex = 3
 		sheen.Parent = card
+		Instance.new("UICorner", sheen).CornerRadius = UDim.new(0, r)
 
 		table.insert(tiles, card)
 		return holder, card, sc, stroke, sheen
@@ -102,19 +103,9 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 	local _, topBar = makeCardHolder("TopBar", 238, 21, 476, 42, 13)
 	topBar.Active = false
 
-	local barLogo = Instance.new("ImageLabel")
-	barLogo.AnchorPoint = Vector2.new(0, 0.5)
-	barLogo.Position = UDim2.new(0, 10, 0.5, 0)
-	barLogo.Size = UDim2.fromOffset(24, 24)
-	barLogo.BackgroundTransparency = 1
-	barLogo.Image = logoAsset
-	barLogo.ScaleType = Enum.ScaleType.Fit
-	barLogo.ZIndex = 5
-	barLogo.Parent = topBar
-
 	local barTitle = Instance.new("TextLabel")
-	barTitle.Position = UDim2.fromOffset(42, 0)
-	barTitle.Size = UDim2.new(0, 82, 1, 0)
+	barTitle.Position = UDim2.fromOffset(16, 0)
+	barTitle.Size = UDim2.new(0, 72, 1, 0)
 	barTitle.BackgroundTransparency = 1
 	barTitle.Font = Enum.Font.GothamBold
 	barTitle.Text = "CatWare"
@@ -126,7 +117,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 
 	local verBadge = Instance.new("TextLabel")
 	verBadge.AnchorPoint = Vector2.new(0, 0.5)
-	verBadge.Position = UDim2.new(0, 112, 0.5, 0)
+	verBadge.Position = UDim2.new(0, 86, 0.5, 0)
 	verBadge.Size = UDim2.fromOffset(38, 18)
 	verBadge.BackgroundTransparency = 0.2
 	verBadge.Font = Enum.Font.GothamBold
@@ -141,7 +132,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 	-- ライブ FPS / Ping 表示
 	local liveDot = Instance.new("Frame")
 	liveDot.AnchorPoint = Vector2.new(0, 0.5)
-	liveDot.Position = UDim2.new(0, 232, 0.5, 0)
+	liveDot.Position = UDim2.new(0, 224, 0.5, 0)
 	liveDot.Size = UDim2.fromOffset(6, 6)
 	liveDot.BackgroundColor3 = Color3.fromRGB(90, 235, 160)
 	liveDot.BorderSizePixel = 0
@@ -150,8 +141,8 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 	Instance.new("UICorner", liveDot).CornerRadius = UDim.new(1, 0)
 
 	local liveStats = Instance.new("TextLabel")
-	liveStats.Position = UDim2.fromOffset(245, 0)
-	liveStats.Size = UDim2.new(0, 150, 1, 0)
+	liveStats.Position = UDim2.fromOffset(237, 0)
+	liveStats.Size = UDim2.new(0, 155, 1, 0)
 	liveStats.BackgroundTransparency = 1
 	liveStats.Font = Enum.Font.GothamMedium
 	liveStats.Text = "-- FPS  •  -- ms"
@@ -225,7 +216,6 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 	local _, profCard = makeCardHolder("ProfileCard", 100, 140, 200, 172, 16)
 	profCard.Active = false
 
-	-- 上部グロー演出
 	local profGlow = Instance.new("ImageLabel")
 	profGlow.AnchorPoint = Vector2.new(0.5, 0.5)
 	profGlow.Position = UDim2.new(0.5, 0, 0.15, 0)
@@ -236,18 +226,6 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 	profGlow.ZIndex = 4
 	Theme.Bind(profGlow, "ImageColor3", "Glow")
 	profGlow.Parent = profCard
-
-	-- 右下の透かし cw.png
-	local profMark = Instance.new("ImageLabel")
-	profMark.AnchorPoint = Vector2.new(1, 1)
-	profMark.Position = UDim2.new(1, 10, 1, 10)
-	profMark.Size = UDim2.fromOffset(78, 78)
-	profMark.BackgroundTransparency = 1
-	profMark.Image = logoAsset
-	profMark.ImageTransparency = 0.88
-	profMark.ScaleType = Enum.ScaleType.Fit
-	profMark.ZIndex = 4
-	profMark.Parent = profCard
 
 	local avatar = Instance.new("ImageLabel")
 	avatar.AnchorPoint = Vector2.new(0.5, 0)
@@ -299,7 +277,6 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 	Theme.Bind(userLbl, "TextColor3", "SubText")
 	userLbl.Parent = profCard
 
-	-- 下部のオンラインバッジ
 	local sessionPill = Instance.new("Frame")
 	sessionPill.AnchorPoint = Vector2.new(0.5, 1)
 	sessionPill.Position = UDim2.new(0.5, 0, 1, -14)
@@ -397,7 +374,6 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 			arrow.Parent = card
 		end
 
-		-- ホバー：黒くならず、白いガラス光沢＋光＆アイコンが明るく拡大！
 		card.MouseEnter:Connect(function()
 			TweenService:Create(sc, hoverIn, { Scale = 1.032 }):Play()
 			TweenService:Create(sheen, hoverIn, { BackgroundTransparency = 0.91 }):Play()
@@ -447,7 +423,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 		return card
 	end
 
-	-- 右上：Visuals（大きめメインタイル 264 x 172）
+	-- 右上：Visuals（264 x 172）
 	local visualsCard = addBentoTile({
 		id = "visuals",
 		label = "Visuals",
@@ -521,7 +497,6 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 		glowHover = 160,
 	})
 
-	-- Themes カード右上のミニカラープレビュードット
 	local dotColors = {
 		Color3.fromRGB(130, 205, 255),
 		Color3.fromRGB(255, 145, 195),
@@ -539,7 +514,6 @@ local function createHub(parent, CatWare, Theme, onSelectPage, trackConn, onClos
 		Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
 	end
 
-	-- 下部の操作ヒント
 	local hint = Instance.new("TextLabel")
 	hint.AnchorPoint = Vector2.new(0.5, 0)
 	hint.Position = UDim2.new(0.5, 0, 1, 14)
