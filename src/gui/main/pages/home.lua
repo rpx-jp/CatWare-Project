@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 
@@ -7,7 +8,6 @@ return function(page, ctx)
 	local Theme = ctx.Theme
 	local C = ctx.Components
 
-	-- プロフィールバナー（シンプル＆クリーン）
 	local hero = Instance.new("Frame")
 	hero.Size = UDim2.new(1, 0, 0, 76)
 	hero.BackgroundTransparency = 0.14
@@ -21,27 +21,30 @@ return function(page, ctx)
 	Theme.Bind(hStroke, "Color", "Glow")
 	hStroke.Parent = hero
 
-	local avatar = Instance.new("ImageLabel")
-	avatar.AnchorPoint = Vector2.new(0, 0.5)
-	avatar.Position = UDim2.new(0, 14, 0.5, 0)
-	avatar.Size = UDim2.fromOffset(50, 50)
-	avatar.BackgroundColor3 = Color3.fromRGB(28, 32, 44)
-	avatar.Parent = hero
-	Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+	-- ギザギザにならない滑らかな二重丸アバター枠
+	local ring = Instance.new("Frame")
+	ring.AnchorPoint = Vector2.new(0, 0.5)
+	ring.Position = UDim2.new(0, 14, 0.5, 0)
+	ring.Size = UDim2.fromOffset(52, 52)
+	ring.BackgroundTransparency = 0.45
+	ring.BorderSizePixel = 0
+	Theme.Bind(ring, "BackgroundColor3", "Accent")
+	ring.Parent = hero
+	Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
 
-	local avStroke = Instance.new("UIStroke")
-	avStroke.Thickness = 1.5
-	avStroke.Transparency = 0.5
-	Theme.Bind(avStroke, "Color", "Accent")
-	avStroke.Parent = avatar
+	local avatar = Instance.new("ImageLabel")
+	avatar.AnchorPoint = Vector2.new(0.5, 0.5)
+	avatar.Position = UDim2.fromScale(0.5, 0.5)
+	avatar.Size = UDim2.fromOffset(48, 48)
+	avatar.BackgroundColor3 = Color3.fromRGB(28, 32, 44)
+	avatar.Parent = ring
+	Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
 
 	task.spawn(function()
 		local ok, thumb = pcall(function()
 			return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
 		end)
-		if ok and thumb then
-			avatar.Image = thumb
-		end
+		if ok and thumb then avatar.Image = thumb end
 	end)
 
 	local disp = Instance.new("TextLabel")
@@ -66,9 +69,9 @@ return function(page, ctx)
 	Theme.Bind(uname, "TextColor3", "SubText")
 	uname.Parent = hero
 
-	-- FPS / Ping カード（2列）
+	-- FPS / Ping カード（ミニゲージバー付き）
 	local statsRow = Instance.new("Frame")
-	statsRow.Size = UDim2.new(1, 0, 0, 68)
+	statsRow.Size = UDim2.new(1, 0, 0, 74)
 	statsRow.BackgroundTransparency = 1
 	statsRow.Parent = page
 
@@ -89,7 +92,7 @@ return function(page, ctx)
 
 		local t = Instance.new("TextLabel")
 		t.Position = UDim2.fromOffset(14, 10)
-		t.Size = UDim2.new(1, -28, 0, 16)
+		t.Size = UDim2.new(1, -28, 0, 14)
 		t.BackgroundTransparency = 1
 		t.Font = Enum.Font.GothamBold
 		t.Text = label
@@ -99,20 +102,37 @@ return function(page, ctx)
 		t.Parent = box
 
 		local v = Instance.new("TextLabel")
-		v.Position = UDim2.fromOffset(14, 28)
-		v.Size = UDim2.new(1, -28, 0, 28)
+		v.Position = UDim2.fromOffset(14, 26)
+		v.Size = UDim2.new(1, -28, 0, 24)
 		v.BackgroundTransparency = 1
 		v.Font = Enum.Font.GothamBold
 		v.Text = "--"
-		v.TextSize = 21
+		v.TextSize = 20
 		v.TextXAlignment = Enum.TextXAlignment.Left
 		Theme.Bind(v, "TextColor3", "Accent")
 		v.Parent = box
-		return v
+
+		local gBg = Instance.new("Frame")
+		gBg.AnchorPoint = Vector2.new(0, 1)
+		gBg.Position = UDim2.new(0, 14, 1, -10)
+		gBg.Size = UDim2.new(1, -28, 0, 3)
+		gBg.BackgroundColor3 = Color3.fromRGB(40, 44, 58)
+		gBg.BorderSizePixel = 0
+		gBg.Parent = box
+		Instance.new("UICorner", gBg).CornerRadius = UDim.new(1, 0)
+
+		local gFill = Instance.new("Frame")
+		gFill.Size = UDim2.fromScale(0.2, 1)
+		gFill.BorderSizePixel = 0
+		Theme.Bind(gFill, "BackgroundColor3", "Accent")
+		gFill.Parent = gBg
+		Instance.new("UICorner", gFill).CornerRadius = UDim.new(1, 0)
+
+		return v, gFill
 	end
 
-	local fpsVal = makeMetric("FRAME RATE", 0, 0)
-	local pingVal = makeMetric("NETWORK PING", 0.5, 5)
+	local fpsVal, fpsBar = makeMetric("FRAME RATE", 0, 0)
+	local pingVal, pingBar = makeMetric("NETWORK PING", 0.5, 5)
 
 	local fc, fl = 0, os.clock()
 	ctx.Track(RunService.RenderStepped:Connect(function()
@@ -122,10 +142,19 @@ return function(page, ctx)
 			local fps = math.floor(fc / (now - fl) + 0.5)
 			fc, fl = 0, now
 			fpsVal.Text = tostring(fps) .. " FPS"
+			TweenService:Create(fpsBar, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
+				Size = UDim2.fromScale(math.clamp(fps / 120, 0.08, 1), 1),
+			}):Play()
+
 			local ok, ping = pcall(function()
 				return math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
 			end)
 			pingVal.Text = ok and (tostring(ping) .. " ms") or "-- ms"
+			if ok then
+				TweenService:Create(pingBar, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
+					Size = UDim2.fromScale(math.clamp(1 - (ping / 220), 0.1, 1), 1),
+				}):Play()
+			end
 		end
 	end))
 
