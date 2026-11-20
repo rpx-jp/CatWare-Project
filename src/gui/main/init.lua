@@ -358,11 +358,8 @@ local function initMainGui(CatWare)
 	miniBtn.Parent = miniWrap
 	Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(0, 14)
 
-	local ms = Instance.new("UIStroke")
-	ms.Color = Color3.fromRGB(255, 255, 255)
-	ms.Thickness = 1
-	ms.Transparency = 0.72
-	ms.Parent = miniBtn
+-- 既存の local ms = ... の5行をこの1行に差し替え
+	Theme.GlassStroke(miniBtn, { Thickness = 1.2, Transparency = 0.15 })
 
 	-- ページ定義
 	local navItems = {
