@@ -28,10 +28,6 @@ local function initMainGui(CatWare)
 	local stageGlassAsset = CatWare.Assets.Get("stage_glass.png")
 	local stageAuroraAsset = CatWare.Assets.Get("stage_aurora.png")
 	local stageShadowAsset = CatWare.Assets.Get("stage_shadow.png")
-	local glowAsset = CatWare.Assets.Get("glow.png")
-	if glowAsset == "" then
-		glowAsset = "rbxassetid://10822615828"
-	end
 
 	local connections = {}
 	local function track(conn)
@@ -44,7 +40,7 @@ local function initMainGui(CatWare)
 	blur.Size = 0
 	blur.Parent = Lighting
 
-	local blurTarget = 14
+	local blurTarget = 16
 	local baseScale = 1
 	local isOpen = true
 
@@ -58,6 +54,7 @@ local function initMainGui(CatWare)
 
 	Notify.Init(screenGui, logoAsset, Theme)
 
+	-- 控えめな空間暗転（背景ぼかしが綺麗に透ける明るさ）
 	local dim = Instance.new("Frame")
 	dim.Size = UDim2.fromScale(1, 1)
 	dim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -65,7 +62,7 @@ local function initMainGui(CatWare)
 	dim.ZIndex = 1
 	dim.Parent = screenGui
 
-	-- ステージ＋下部ドック全体をまとめるコンテナ（ドラッグ＆拡大縮小が一体で動く）
+	-- ステージ＋下部ドック全体をまとめるコンテナ
 	local root = Instance.new("Frame")
 	root.Name = "SpatialRoot"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -80,7 +77,7 @@ local function initMainGui(CatWare)
 	rootScale.Parent = root
 
 	-- ==========================================
-	-- メイン・リキッドグラス・ステージ（540 x 312）
+	-- VisionOS リキッドグラス・ステージ（540 x 312）
 	-- ==========================================
 	local stageWrap = Instance.new("Frame")
 	stageWrap.Name = "GlassStage"
@@ -97,11 +94,11 @@ local function initMainGui(CatWare)
 	stageShadow.Size = UDim2.fromOffset(540 + 60, 312 + 60)
 	stageShadow.BackgroundTransparency = 1
 	stageShadow.Image = stageShadowAsset
-	stageShadow.ImageTransparency = 0.32
+	stageShadow.ImageTransparency = 0.36
 	stageShadow.ZIndex = 1
 	stageShadow.Parent = stageWrap
 
-	-- ベースシルエット（テーマ色で着色）
+	-- 半透明ガラスベース（背景がうっすら透けるVision Pro質感）
 	local stageBg = Instance.new("ImageLabel")
 	stageBg.Name = "StageBg"
 	stageBg.Size = UDim2.fromScale(1, 1)
@@ -112,7 +109,7 @@ local function initMainGui(CatWare)
 	Theme.Bind(stageBg, "ImageColor3", "Tile")
 	stageBg.Parent = stageWrap
 
-	-- 角丸に完全マスク済みのオーロラ発光（絶対に角からはみ出ない！）
+	-- 自然な光の反射（ネオン感を消して薄く）
 	local stageAurora = Instance.new("ImageLabel")
 	stageAurora.Size = UDim2.fromScale(1, 1)
 	stageAurora.BackgroundTransparency = 1
@@ -122,15 +119,16 @@ local function initMainGui(CatWare)
 	Theme.Bind(stageAurora, "ImageColor3", "Glow")
 	stageAurora.Parent = stageWrap
 
-	-- 上面がキラッと光るリキッドグラスの縁＆光沢
+	-- 上面がキラッと光る光学ガラスリム（クリックを邪魔しないZIndex=4）
 	local stageGlass = Instance.new("ImageLabel")
 	stageGlass.Size = UDim2.fromScale(1, 1)
 	stageGlass.BackgroundTransparency = 1
 	stageGlass.Image = stageGlassAsset
-	stageGlass.ImageTransparency = 0.06
-	stageGlass.ZIndex = 10
+	stageGlass.ImageTransparency = 0.08
+	stageGlass.ZIndex = 4
 	stageGlass.Parent = stageWrap
--- ヘッダー（ここをドラッグすると全体が移動！）
+
+	-- ヘッダー（ドラッグ領域）
 	local header = Instance.new("TextButton")
 	header.Name = "StageHeader"
 	header.Size = UDim2.new(1, 0, 0, 62)
@@ -141,7 +139,7 @@ local function initMainGui(CatWare)
 	header.ZIndex = 12
 	header.Parent = stageWrap
 
-	-- VisionOS風 ドラッグ用グリップバー
+	-- VisionOS ドラッグ用グリップバー
 	local grip = Instance.new("Frame")
 	grip.AnchorPoint = Vector2.new(0.5, 0)
 	grip.Position = UDim2.new(0.5, 0, 0, 7)
@@ -153,7 +151,20 @@ local function initMainGui(CatWare)
 	grip.Parent = header
 	Instance.new("UICorner", grip).CornerRadius = UDim.new(1, 0)
 
--- 滑らかTweenドラッグ処理（慣性追従＋掴み演出）
+	header.MouseEnter:Connect(function()
+		TweenService:Create(grip, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			Size = UDim2.fromOffset(54, 3),
+			BackgroundTransparency = 0.35,
+		}):Play()
+	end)
+	header.MouseLeave:Connect(function()
+		TweenService:Create(grip, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			Size = UDim2.fromOffset(38, 3),
+			BackgroundTransparency = 0.72,
+		}):Play()
+	end)
+
+	-- 滑らかTweenドラッグ処理（慣性追従＋掴み演出）
 	local dragging = false
 	local dragStartMouse, startPos, lastDelta
 	local dragTweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -206,74 +217,72 @@ local function initMainGui(CatWare)
 		)
 		TweenService:Create(root, dragTweenInfo, { Position = targetPos }):Play()
 	end))
-	-- ヘッダー左：光るアイコンオーブ＋ページタイトル
+
+	-- ヘッダー左：クリーンな白透けガラス丸バッジ＋タイトル
 	local orb = Instance.new("Frame")
 	orb.AnchorPoint = Vector2.new(0, 0.5)
-	orb.Position = UDim2.new(0, 20, 0.5, 0)
+	orb.Position = UDim2.new(0, 20, 0.5, 2)
 	orb.Size = UDim2.fromOffset(36, 36)
-	orb.BackgroundTransparency = 0.25
-	orb.ZIndex = 7
-	Theme.Bind(orb, "BackgroundColor3", "Card")
+	orb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	orb.BackgroundTransparency = 0.88
+	orb.ZIndex = 13
 	orb.Parent = header
 	Instance.new("UICorner", orb).CornerRadius = UDim.new(1, 0)
 
-	local orbGlow = Instance.new("ImageLabel")
-	orbGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-	orbGlow.Position = UDim2.fromScale(0.5, 0.5)
-	orbGlow.Size = UDim2.fromOffset(52, 52)
-	orbGlow.BackgroundTransparency = 1
-	orbGlow.Image = glowAsset
-	orbGlow.ImageTransparency = 0.65
-	orbGlow.ZIndex = 6
-	Theme.Bind(orbGlow, "ImageColor3", "Glow")
-	orbGlow.Parent = orb
+	local orbStroke = Instance.new("UIStroke")
+	orbStroke.Color = Color3.fromRGB(255, 255, 255)
+	orbStroke.Thickness = 1
+	orbStroke.Transparency = 0.85
+	orbStroke.Parent = orb
 
 	local headerIcon = Instance.new("ImageLabel")
 	headerIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	headerIcon.Position = UDim2.fromScale(0.5, 0.5)
 	headerIcon.Size = UDim2.fromOffset(18, 18)
 	headerIcon.BackgroundTransparency = 1
+	headerIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
 	headerIcon.ScaleType = Enum.ScaleType.Fit
-	headerIcon.ZIndex = 8
-	Theme.Bind(headerIcon, "ImageColor3", "Accent")
+	headerIcon.ZIndex = 14
 	headerIcon.Parent = orb
 
 	local headerTitle = Instance.new("TextLabel")
-	headerTitle.Position = UDim2.fromOffset(68, 12)
+	headerTitle.Position = UDim2.fromOffset(68, 14)
 	headerTitle.Size = UDim2.new(0, 240, 0, 22)
 	headerTitle.BackgroundTransparency = 1
 	headerTitle.Font = Enum.Font.GothamBold
 	headerTitle.Text = "Home"
+	headerTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 	headerTitle.TextSize = 17
 	headerTitle.TextXAlignment = Enum.TextXAlignment.Left
-	headerTitle.ZIndex = 7
-	Theme.Bind(headerTitle, "TextColor3", "Text")
+	headerTitle.ZIndex = 13
 	headerTitle.Parent = header
 
 	local headerSub = Instance.new("TextLabel")
-	headerSub.Position = UDim2.fromOffset(68, 35)
+	headerSub.Position = UDim2.fromOffset(68, 36)
 	headerSub.Size = UDim2.new(0, 280, 0, 14)
 	headerSub.BackgroundTransparency = 1
 	headerSub.Font = Enum.Font.Gotham
-	headerSub.Text = "CatWare Spatial Interface"
+	headerSub.Text = "Overview"
+	headerSub.TextColor3 = Color3.fromRGB(255, 255, 255)
+	headerSub.TextTransparency = 0.45
 	headerSub.TextSize = 11
 	headerSub.TextXAlignment = Enum.TextXAlignment.Left
-	headerSub.ZIndex = 7
-	Theme.Bind(headerSub, "TextColor3", "SubText")
+	headerSub.ZIndex = 13
 	headerSub.Parent = header
 
-	-- ヘッダー右：ミニマルな FPS / Ping ピル
+	-- ヘッダー右：クリーンなガラスピル（FPS • ms）
 	local statPill = Instance.new("TextLabel")
 	statPill.AnchorPoint = Vector2.new(1, 0.5)
-	statPill.Position = UDim2.new(1, -20, 0.5, 0)
-	statPill.Size = UDim2.fromOffset(122, 26)
-	statPill.BackgroundTransparency = 0.35
+	statPill.Position = UDim2.new(1, -20, 0.5, 2)
+	statPill.Size = UDim2.fromOffset(118, 26)
+	statPill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	statPill.BackgroundTransparency = 0.90
 	statPill.Font = Enum.Font.GothamMedium
-	statPill.Text = "-- FPS • -- ms"
+	statPill.Text = "-- fps • -- ms"
+	statPill.TextColor3 = Color3.fromRGB(255, 255, 255)
+	statPill.TextTransparency = 0.25
 	statPill.TextSize = 11
-	statPill.ZIndex = 7
-	Theme.Bind(statPill, "BackgroundColor3", "Card")
-	Theme.Bind(statPill, "TextColor3", "SubText")
+	statPill.ZIndex = 13
 	statPill.Parent = header
 	Instance.new("UICorner", statPill).CornerRadius = UDim.new(1, 0)
 
@@ -288,16 +297,16 @@ local function initMainGui(CatWare)
 			local ok, ping = pcall(function()
 				return math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
 			end)
-			statPill.Text = tostring(fps) .. " FPS • " .. (ok and tostring(ping) or "--") .. " ms"
+			statPill.Text = tostring(fps) .. " fps • " .. (ok and tostring(ping) or "--") .. " ms"
 		end
 	end))
 
-	-- 両端がふんわり消える区切り線
+	-- 繊細なホワイトの区切り線
 	local div = Instance.new("Frame")
 	div.Position = UDim2.fromOffset(20, 62)
 	div.Size = UDim2.new(1, -40, 0, 1)
 	div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	div.BackgroundTransparency = 0.78
+	div.BackgroundTransparency = 0.86
 	div.BorderSizePixel = 0
 	div.ZIndex = 6
 	div.Parent = stageWrap
@@ -305,8 +314,8 @@ local function initMainGui(CatWare)
 	local divGrad = Instance.new("UIGradient")
 	divGrad.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.15, 0),
-		NumberSequenceKeypoint.new(0.85, 0),
+		NumberSequenceKeypoint.new(0.12, 0),
+		NumberSequenceKeypoint.new(0.88, 0),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	divGrad.Parent = div
@@ -314,7 +323,7 @@ local function initMainGui(CatWare)
 	-- ページ切り替え領域
 	local pageHolder = Instance.new("Frame")
 	pageHolder.Position = UDim2.fromOffset(0, 64)
-	pageHolder.Size = UDim2.new(1, 0, 1, -72)
+	pageHolder.Size = UDim2.new(1, 0, 1, -74)
 	pageHolder.BackgroundTransparency = 1
 	pageHolder.ClipsDescendants = true
 	pageHolder.ZIndex = 6
@@ -334,7 +343,7 @@ local function initMainGui(CatWare)
 
 	local miniBtn = Instance.new("ImageButton")
 	miniBtn.Size = UDim2.fromScale(1, 1)
-	miniBtn.BackgroundTransparency = 0.12
+	miniBtn.BackgroundTransparency = 0.22
 	miniBtn.Image = logoAsset
 	miniBtn.ScaleType = Enum.ScaleType.Fit
 	miniBtn.ZIndex = 2
@@ -343,18 +352,18 @@ local function initMainGui(CatWare)
 	Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(0, 14)
 
 	local ms = Instance.new("UIStroke")
-	ms.Thickness = 1.2
-	ms.Transparency = 0.65
-	Theme.Bind(ms, "Color", "Glow")
+	ms.Color = Color3.fromRGB(255, 255, 255)
+	ms.Thickness = 1
+	ms.Transparency = 0.72
 	ms.Parent = miniBtn
 
 	-- ページ定義
 	local navItems = {
-		{ id = "home",     label = "Home",      sub = "Overview & Live Telemetry",     path = "src/gui/main/pages/home.lua",     isAvatar = true },
-		{ id = "visuals",  label = "Visuals",   sub = "Atmosphere, Blur & Camera",     path = "src/gui/main/pages/visuals.lua" },
-		{ id = "models",   label = "3D Models", sub = "HUD & Screen Overlays",         path = "src/gui/main/pages/models.lua" },
-		{ id = "settings", label = "Settings",  sub = "Interface Scale & System",      path = "src/gui/main/pages/settings.lua" },
-		{ id = "themes",   label = "Themes",    sub = "Color & Glass Presets",         path = "src/gui/main/pages/themes.lua" },
+		{ id = "home",     label = "Home",      sub = "Overview & Status",        path = "src/gui/main/pages/home.lua",     isAvatar = true },
+		{ id = "visuals",  label = "Visuals",   sub = "Display, Blur & Camera",   path = "src/gui/main/pages/visuals.lua" },
+		{ id = "models",   label = "3D Models", sub = "HUD & Overlays",           path = "src/gui/main/pages/models.lua" },
+		{ id = "settings", label = "Settings",  sub = "Interface & System",       path = "src/gui/main/pages/settings.lua" },
+		{ id = "themes",   label = "Themes",    sub = "Glass Materials",          path = "src/gui/main/pages/themes.lua" },
 	}
 
 	local pageFrames = {}
@@ -367,6 +376,8 @@ local function initMainGui(CatWare)
 		sf.BackgroundTransparency = 1
 		sf.BorderSizePixel = 0
 		sf.ScrollBarThickness = 3
+		sf.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+		sf.ScrollBarImageTransparency = 0.65
 		sf.CanvasSize = UDim2.new(0, 0, 0, 0)
 		sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		sf.Visible = false
@@ -374,12 +385,12 @@ local function initMainGui(CatWare)
 
 		local list = Instance.new("UIListLayout")
 		list.SortOrder = Enum.SortOrder.LayoutOrder
-		list.Padding = UDim.new(0, 8)
+		list.Padding = UDim.new(0, 10)
 		list.Parent = sf
 
 		local pad = Instance.new("UIPadding")
-		pad.PaddingTop = UDim.new(0, 10)
-		pad.PaddingBottom = UDim.new(0, 12)
+		pad.PaddingTop = UDim.new(0, 12)
+		pad.PaddingBottom = UDim.new(0, 16)
 		pad.PaddingLeft = UDim.new(0, 20)
 		pad.PaddingRight = UDim.new(0, 20)
 		pad.Parent = sf
@@ -401,7 +412,7 @@ local function initMainGui(CatWare)
 		for k, sf in pairs(pageFrames) do
 			if k == id then
 				sf.Visible = true
-				sf.Position = UDim2.fromOffset(18, 0)
+				sf.Position = UDim2.fromOffset(16, 0)
 				TweenService:Create(sf, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 					Position = UDim2.fromOffset(0, 0),
 				}):Play()
@@ -421,6 +432,7 @@ local function initMainGui(CatWare)
 			Notify.Send("CatWare", "RightShift キーで再表示できます", 2.5)
 		end
 	end)
+	dock.Bg.ImageTransparency = 0.24
 
 	function setOpen(state, showMini)
 		isOpen = state
@@ -430,7 +442,7 @@ local function initMainGui(CatWare)
 			root.Visible = true
 			rootScale.Scale = baseScale * 0.92
 			TweenService:Create(blur, TweenInfo.new(0.28), { Size = blurTarget }):Play()
-			TweenService:Create(dim, TweenInfo.new(0.28), { BackgroundTransparency = 0.56 }):Play()
+			TweenService:Create(dim, TweenInfo.new(0.28), { BackgroundTransparency = 0.42 }):Play()
 			TweenService:Create(rootScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 				Scale = baseScale,
 			}):Play()
@@ -504,7 +516,7 @@ local function initMainGui(CatWare)
 
 	selectPage("home")
 	setOpen(true, false)
-	Notify.Send("CatWare", "Spatial Glass v3 起動完了", 2.5)
+	Notify.Send("CatWare", "CatWare VisionOS 起動完了", 2.5)
 end
 
 return initMainGui
