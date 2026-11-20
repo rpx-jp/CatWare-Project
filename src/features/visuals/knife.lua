@@ -151,6 +151,7 @@ local function tryBuildFromRbxm(fileName, targetLength)
 		warn("[CatWare Knife] AssetsRef が未設定です (visuals.lua の SetAssets を確認)")
 		return false
 	end
+
 	local assetUrl = AssetsRef.Get(fileName, true)
 	if not assetUrl or assetUrl == "" then
 		warn("[CatWare Knife] " .. fileName .. " がサーバーから取得できませんでした")
@@ -173,6 +174,85 @@ local function tryBuildFromRbxm(fileName, targetLength)
 			return false
 		end
 	end
+
+	local rootObj = objs[1]
+	local tempModel = Instance.new("Model")
+	if rootObj:IsA("Model") then
+		for _, ch in ipairs(rootObj:GetChildren()) do
+			ch.Parent = tempModel
+		end
+		rootObj:Destroy()
+	else
+		rootObj.Parent = tempModel
+	end
+
+	local customPivotPos = nil
+	local ringMarker = tempModel:FindFirstChild("RingPivot", true)
+	if ringMarker and ringMarker:IsA("BasePart") then
+		customPivotPos = ringMarker.Position
+		ringMarker:Destroy()
+	end
+
+	local boxCF, boxSize = tempModel:GetBoundingBox()
+	local maxDim = math.max(boxSize.X, boxSize.Y, boxSize.Z)
+	if maxDim <= 0.001 then
+		warn("[CatWare Knife] " .. fileName .. " のサイズが 0 です")
+		tempModel:Destroy()
+		return false
+	end
+
+	-- RingPivot がモデル本体から遠く離れていたら誤配置として無視
+	if customPivotPos and (customPivotPos - boxCF.Position).Magnitude > maxDim * 0.75 then
+		customPivotPos = nil
+	end
+
+	local normScale = (targetLength or 1.25) / maxDim
+
+	-- 最長軸（Z軸長 or X軸長）を自動判定して一人称の向きに揃える
+	local alignCF, defaultPivotOffset
+	if boxSize.Z > boxSize.X then
+		alignCF = CFrame.Angles(0, math.rad(-90), math.rad(-14))
+		defaultPivotOffset = Vector3.new(0, -boxSize.Y * 0.08, -boxSize.Z * 0.36)
+	else
+		alignCF = CFrame.Angles(0, math.rad(180), math.rad(-14))
+		defaultPivotOffset = Vector3.new(-boxSize.X * 0.36, -boxSize.Y * 0.08, 0)
+	end
+
+	local pivotWorldPos = customPivotPos or (boxCF * defaultPivotOffset)
+	local pivotFrame = CFrame.new(pivotWorldPos)
+
+	for _, desc in ipairs(tempModel:GetDescendants()) do
+		if desc:IsA("JointInstance") or desc:IsA("Constraint") then
+			desc:Destroy()
+		elseif desc:IsA("BasePart") then
+			desc.Anchored = true
+			desc.CanCollide = false
+			desc.CanTouch = false
+			desc.CanQuery = false
+			desc.CastShadow = false
+
+			local relCF = pivotFrame:ToObjectSpace(desc.CFrame)
+			local scaledRel = CFrame.new(relCF.Position * normScale) * (relCF - relCF.Position)
+			local finalLocalCF = alignCF * scaledRel
+			local baseSz = desc.Size * normScale
+
+			desc.Size = baseSz * knifeScale
+			desc.Parent = model
+
+			table.insert(partsList, {
+				part = desc,
+				baseSize = baseSz,
+				group = "blade",
+				role = "imported",
+				localCF = finalLocalCF,
+			})
+		end
+	end
+
+	tempModel:Destroy()
+	print("[CatWare Knife] .rbxm 読込成功:", fileName, "パーツ数:", #partsList)
+	return #partsList > 0
+end
 
 -- ==========================================================
 -- フォールバック用コード生成モデル
