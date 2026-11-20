@@ -14,11 +14,7 @@ return function(parent, text, default, Theme, callback)
 	row.Parent = parent
 	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 14)
 
-	local st = Instance.new("UIStroke")
-	st.Color = Color3.fromRGB(255, 255, 255)
-	st.Thickness = 1
-	st.Transparency = 0.90
-	st.Parent = row
+	local st = Theme.GlassStroke(row, { Transparency = 0.25 })
 
 	local lbl = Instance.new("TextLabel")
 	lbl.Position = UDim2.fromOffset(16, 0)
@@ -52,9 +48,11 @@ return function(parent, text, default, Theme, callback)
 
 	row.MouseEnter:Connect(function()
 		TweenService:Create(row, TweenInfo.new(0.18), { BackgroundTransparency = 0.85 }):Play()
+		TweenService:Create(st, TweenInfo.new(0.18), { Transparency = 0 }):Play()
 	end)
 	row.MouseLeave:Connect(function()
 		TweenService:Create(row, TweenInfo.new(0.18), { BackgroundTransparency = 0.91 }):Play()
+		TweenService:Create(st, TweenInfo.new(0.18), { Transparency = 0.25 }):Play()
 	end)
 
 	row.MouseButton1Click:Connect(function()
