@@ -1,6 +1,7 @@
 return function(page, ctx)
 	local C = ctx.Components
 	local Theme = ctx.Theme
+	local Icons = ctx.CatWare.Import("src/gui/main/icons.lua")
 
 	C.Section(page, "Glass Material")
 
@@ -28,7 +29,6 @@ return function(page, ctx)
 		local chev = btn:FindFirstChild("Chevron")
 		if chev then chev.Visible = false end
 
-		-- ガラス質感サンプルの丸チップ
 		local swatch = Instance.new("Frame")
 		swatch.AnchorPoint = Vector2.new(1, 0.5)
 		swatch.Position = UDim2.new(1, -16, 0.5, 0)
@@ -43,15 +43,15 @@ return function(page, ctx)
 		swStroke.Transparency = 0.65
 		swStroke.Parent = swatch
 
-		local check = Instance.new("TextLabel")
+		-- Lucide check アイコン
+		local check = Instance.new("ImageLabel")
 		check.AnchorPoint = Vector2.new(1, 0.5)
 		check.Position = UDim2.new(1, -48, 0.5, 0)
-		check.Size = UDim2.fromOffset(20, 20)
+		check.Size = UDim2.fromOffset(16, 16)
 		check.BackgroundTransparency = 1
-		check.Font = Enum.Font.GothamBold
-		check.Text = "✓"
-		check.TextColor3 = Color3.fromRGB(255, 255, 255)
-		check.TextSize = 15
+		check.Image = Icons.Get("check")
+		check.ImageColor3 = Color3.fromRGB(255, 255, 255)
+		check.ScaleType = Enum.ScaleType.Fit
 		check.Parent = btn
 
 		checks[item.key] = check
