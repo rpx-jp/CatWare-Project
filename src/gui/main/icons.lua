@@ -1,7 +1,7 @@
 local Icons = {}
 
--- Lucide Icons (Roblox Asset ID)
 Icons.List = {
+	home     = "rbxassetid://10723407389", -- lucide-home
 	visuals  = "rbxassetid://10734966248", -- lucide-star
 	models   = "rbxassetid://10709782497", -- lucide-box
 	settings = "rbxassetid://10734950309", -- lucide-settings
@@ -12,17 +12,16 @@ function Icons.Get(id)
 	return Icons.List[id] or ""
 end
 
-function Icons.Create(id, parent, Theme)
+function Icons.Create(id, parent, Theme, size)
+	local s = size or 22
 	local img = Instance.new("ImageLabel")
 	img.Name = "LucideIcon"
 	img.AnchorPoint = Vector2.new(0.5, 0.5)
-	img.Position = UDim2.new(0.5, 0, 0.41, 0)
-	img.Size = UDim2.fromOffset(40, 40)
+	img.Position = UDim2.fromScale(0.5, 0.5)
+	img.Size = UDim2.fromOffset(s, s)
 	img.BackgroundTransparency = 1
 	img.Image = Icons.Get(id)
-	img.ImageTransparency = 0.15
 	img.ScaleType = Enum.ScaleType.Fit
-	img.ZIndex = 7
 	Theme.Bind(img, "ImageColor3", "Accent")
 	img.Parent = parent
 	return img
