@@ -6,7 +6,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	local logoAsset = CatWare.Assets.Get("cw.png")
 	local glowAsset = CatWare.Assets.Get("glow.png")
 	if glowAsset == "" then
-		glowAsset = "rbxassetid://10822615828" -- 万が一のフォールバック光テクスチャ
+		glowAsset = "rbxassetid://10822615828"
 	end
 
 	local Icons = CatWare.Import("src/gui/main/icons.lua")
@@ -38,50 +38,55 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 
 	local tiles = {}
 	local tileDefs = {
-		{ id = "visuals",  label = "Visuals",   pos = UDim2.fromOffset(0, 0) },
-		{ id = "models",   label = "3D Models", pos = UDim2.fromOffset(236, 0) },
-		{ id = "settings", label = "Settings",  pos = UDim2.fromOffset(0, 212) },
-		{ id = "themes",   label = "Themes",    pos = UDim2.fromOffset(236, 212) },
+		{ id = "visuals",  label = "Visuals",   corner = "tl", pos = UDim2.fromOffset(110, 98),  glowPos = UDim2.new(0.47, 0, 0.40, 0) },
+		{ id = "models",   label = "3D Models", corner = "tr", pos = UDim2.fromOffset(346, 98),  glowPos = UDim2.new(0.53, 0, 0.40, 0) },
+		{ id = "settings", label = "Settings",  corner = "bl", pos = UDim2.fromOffset(110, 310), glowPos = UDim2.new(0.47, 0, 0.45, 0) },
+		{ id = "themes",   label = "Themes",    corner = "br", pos = UDim2.fromOffset(346, 310), glowPos = UDim2.new(0.53, 0, 0.45, 0) },
 	}
 
 	local hoverIn = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	local hoverOut = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
 	for _, def in ipairs(tileDefs) do
-		local tile = Instance.new("TextButton")
+		local tileAsset = CatWare.Assets.Get("tile_" .. def.corner .. ".png")
+		local strokeAsset = CatWare.Assets.Get("tile_stroke_" .. def.corner .. ".png")
+
+		local tile = Instance.new("ImageButton")
 		tile.Name = def.id
+		tile.AnchorPoint = Vector2.new(0.5, 0.5)
 		tile.Position = def.pos
 		tile.Size = UDim2.fromOffset(220, 196)
-		tile.BackgroundTransparency = 0.14
-		tile.Text = ""
+		tile.BackgroundTransparency = 1
+		tile.Image = tileAsset
+		tile.ImageTransparency = 0.14
 		tile.AutoButtonColor = false
-		tile.ClipsDescendants = true
 		tile.ZIndex = 5
-		Theme.Bind(tile, "BackgroundColor3", "Tile")
+		Theme.Bind(tile, "ImageColor3", "Tile")
 		tile.Parent = hub
 
 		table.insert(tiles, tile)
-
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 16)
-		corner.Parent = tile
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 1.2
-		stroke.Transparency = 0.84
-		Theme.Bind(stroke, "Color", "Glow")
-		stroke.Parent = tile
 
 		local tScale = Instance.new("UIScale")
 		tScale.Scale = 1
 		tScale.Parent = tile
 
-		-- 滑らかな丸い光（ラジアルグロー）
+		-- くり抜き形状に沿った枠線
+		local strokeImg = Instance.new("ImageLabel")
+		strokeImg.Name = "NotchedStroke"
+		strokeImg.Size = UDim2.fromScale(1, 1)
+		strokeImg.BackgroundTransparency = 1
+		strokeImg.Image = strokeAsset
+		strokeImg.ImageTransparency = 0.82
+		strokeImg.ZIndex = 8
+		Theme.Bind(strokeImg, "ImageColor3", "Glow")
+		strokeImg.Parent = tile
+
+		-- 滑らかな丸い光（くり抜き側へはみ出さないサイズ＆配置）
 		local glow = Instance.new("ImageLabel")
 		glow.Name = "SoftGlow"
 		glow.AnchorPoint = Vector2.new(0.5, 0.5)
-		glow.Position = UDim2.new(0.5, 0, 0.42, 0)
-		glow.Size = UDim2.fromOffset(145, 145)
+		glow.Position = def.glowPos
+		glow.Size = UDim2.fromOffset(130, 130)
 		glow.BackgroundTransparency = 1
 		glow.Image = glowAsset
 		glow.ImageTransparency = 0.72
@@ -92,11 +97,12 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 
 		-- Lucide アイコン
 		local icon = Icons.Create(def.id, tile, Theme)
+		icon.Position = def.glowPos
 
 		local nameLbl = Instance.new("TextLabel")
 		nameLbl.AnchorPoint = Vector2.new(0.5, 0)
-		nameLbl.Position = UDim2.new(0.5, 0, 0.62, 0)
-		nameLbl.Size = UDim2.new(1, -24, 0, 24)
+		nameLbl.Position = UDim2.new(def.glowPos.X.Scale, 0, def.glowPos.Y.Scale + 0.19, 0)
+		nameLbl.Size = UDim2.new(1, -28, 0, 24)
 		nameLbl.BackgroundTransparency = 1
 		nameLbl.Font = Enum.Font.GothamBold
 		nameLbl.Text = def.label
@@ -108,12 +114,12 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 
 		-- ホバー：明るく発光 ＋ サイズ拡大Tween
 		tile.MouseEnter:Connect(function()
-			TweenService:Create(tScale, hoverIn, { Scale = 1.045 }):Play()
-			TweenService:Create(tile, hoverIn, { BackgroundColor3 = Theme.Current.CardHover }):Play()
-			TweenService:Create(stroke, hoverIn, { Transparency = 0.35 }):Play()
+			TweenService:Create(tScale, hoverIn, { Scale = 1.035 }):Play()
+			TweenService:Create(tile, hoverIn, { ImageColor3 = Theme.Current.CardHover }):Play()
+			TweenService:Create(strokeImg, hoverIn, { ImageTransparency = 0.32 }):Play()
 			TweenService:Create(glow, hoverIn, {
-				Size = UDim2.fromOffset(225, 225),
-				ImageTransparency = 0.35,
+				Size = UDim2.fromOffset(180, 180),
+				ImageTransparency = 0.34,
 			}):Play()
 			TweenService:Create(icon, hoverIn, {
 				Size = UDim2.fromOffset(48, 48),
@@ -125,10 +131,10 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 
 		tile.MouseLeave:Connect(function()
 			TweenService:Create(tScale, hoverOut, { Scale = 1 }):Play()
-			TweenService:Create(tile, hoverOut, { BackgroundColor3 = Theme.Current.Tile }):Play()
-			TweenService:Create(stroke, hoverOut, { Transparency = 0.84 }):Play()
+			TweenService:Create(tile, hoverOut, { ImageColor3 = Theme.Current.Tile }):Play()
+			TweenService:Create(strokeImg, hoverOut, { ImageTransparency = 0.82 }):Play()
 			TweenService:Create(glow, hoverOut, {
-				Size = UDim2.fromOffset(145, 145),
+				Size = UDim2.fromOffset(130, 130),
 				ImageTransparency = 0.72,
 			}):Play()
 			TweenService:Create(icon, hoverOut, {
@@ -144,22 +150,13 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		end)
 	end
 
-	-- 中央のくり抜き枠＋プロフィールカード
-	local cutout = Instance.new("Frame")
-	cutout.AnchorPoint = Vector2.new(0.5, 0.5)
-	cutout.Position = UDim2.fromScale(0.5, 0.5)
-	cutout.Size = UDim2.fromOffset(128, 128)
-	cutout.BackgroundColor3 = Color3.fromRGB(4, 5, 8)
-	cutout.BackgroundTransparency = 0.25
-	cutout.ZIndex = 15
-	cutout.Parent = hub
-	Instance.new("UICorner", cutout).CornerRadius = UDim.new(0, 20)
-
+	-- 中央プロフィールカード（周りの隙間は完全に透過！）
 	local profile = Instance.new("Frame")
+	profile.Name = "CenterProfile"
 	profile.AnchorPoint = Vector2.new(0.5, 0.5)
 	profile.Position = UDim2.fromScale(0.5, 0.5)
 	profile.Size = UDim2.fromOffset(112, 112)
-	profile.BackgroundTransparency = 0.08
+	profile.BackgroundTransparency = 0.1
 	profile.ZIndex = 20
 	Theme.Bind(profile, "BackgroundColor3", "Card")
 	profile.Parent = hub
