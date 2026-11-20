@@ -107,7 +107,7 @@ local function initMainGui(CatWare)
 	stageBg.Size = UDim2.fromScale(1, 1)
 	stageBg.BackgroundTransparency = 1
 	stageBg.Image = stageBgAsset
-	stageBg.ImageTransparency = 0.14
+	stageBg.ImageTransparency = 0.26
 	stageBg.ZIndex = 2
 	Theme.Bind(stageBg, "ImageColor3", "Tile")
 	stageBg.Parent = stageWrap
@@ -117,7 +117,7 @@ local function initMainGui(CatWare)
 	stageAurora.Size = UDim2.fromScale(1, 1)
 	stageAurora.BackgroundTransparency = 1
 	stageAurora.Image = stageAuroraAsset
-	stageAurora.ImageTransparency = 0.18
+	stageAurora.ImageTransparency = 0.62
 	stageAurora.ZIndex = 3
 	Theme.Bind(stageAurora, "ImageColor3", "Glow")
 	stageAurora.Parent = stageWrap
