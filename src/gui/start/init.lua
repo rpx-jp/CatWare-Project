@@ -45,7 +45,7 @@ local function playStartAnim()
 	backdrop.BackgroundTransparency = 1
 	backdrop.Parent = screenGui
 
-	-- ロゴ画像
+
 	local logo = Instance.new("ImageLabel")
 	logo.AnchorPoint = Vector2.new(0.5, 0.5)
 	logo.Position = UDim2.fromScale(0.5, 0.5)
