@@ -6,6 +6,8 @@ Icons.List = {
 	models   = "rbxassetid://10709782497", -- lucide-box
 	settings = "rbxassetid://10734950309", -- lucide-settings
 	themes   = "rbxassetid://10734910187", -- lucide-paintbrush
+	minus    = "rbxassetid://10734896206", -- lucide-minus
+	close    = "rbxassetid://10747384394", -- lucide-x
 }
 
 function Icons.Get(id)
