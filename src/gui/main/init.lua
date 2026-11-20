@@ -153,48 +153,59 @@ local function initMainGui(CatWare)
 	grip.Parent = header
 	Instance.new("UICorner", grip).CornerRadius = UDim.new(1, 0)
 
-	header.MouseEnter:Connect(function()
-		TweenService:Create(grip, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
-			Size = UDim2.fromOffset(54, 3),
-			BackgroundTransparency = 0.35,
+-- 滑らかTweenドラッグ処理（慣性追従＋掴み演出）
+	local dragging = false
+	local dragStartMouse, startPos, lastDelta
+	local dragTweenInfo = TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
+	local function stopDrag()
+		if not dragging then return end
+		dragging = false
+		TweenService:Create(rootScale, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			Scale = baseScale,
 		}):Play()
-	end)
-	header.MouseLeave:Connect(function()
 		TweenService:Create(grip, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
 			Size = UDim2.fromOffset(38, 3),
 			BackgroundTransparency = 0.72,
 		}):Play()
-	end)
-
-	-- 確実ドラッグ処理（RenderStepped + GetMouseLocation）
-	local dragging = false
-	local dragStartMouse, startPos
+	end
 
 	track(header.MouseButton1Down:Connect(function()
 		dragging = true
 		dragStartMouse = UserInputService:GetMouseLocation()
 		startPos = root.Position
+		lastDelta = nil
+		TweenService:Create(rootScale, TweenInfo.new(0.18, Enum.EasingStyle.Quint), {
+			Scale = baseScale * 1.012,
+		}):Play()
+		TweenService:Create(grip, TweenInfo.new(0.18, Enum.EasingStyle.Quint), {
+			Size = UDim2.fromOffset(64, 3),
+			BackgroundTransparency = 0.15,
+		}):Play()
 	end))
 
 	track(UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
+			stopDrag()
 		end
 	end))
 
 	track(RunService.RenderStepped:Connect(function()
 		if not dragging then return end
 		if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-			dragging = false
+			stopDrag()
 			return
 		end
 		local d = UserInputService:GetMouseLocation() - dragStartMouse
-		root.Position = UDim2.new(
+		if d == lastDelta then return end
+		lastDelta = d
+
+		local targetPos = UDim2.new(
 			startPos.X.Scale, startPos.X.Offset + d.X,
 			startPos.Y.Scale, startPos.Y.Offset + d.Y
 		)
+		TweenService:Create(root, dragTweenInfo, { Position = targetPos }):Play()
 	end))
-
 	-- ヘッダー左：光るアイコンオーブ＋ページタイトル
 	local orb = Instance.new("Frame")
 	orb.AnchorPoint = Vector2.new(0, 0.5)
