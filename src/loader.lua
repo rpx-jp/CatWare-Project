@@ -37,6 +37,8 @@ local CatWare = {
 	Version = "1.0",
 	Import = import,
 	Assets = import("src/utils/assets.lua"),
+	Theme = import("src/utils/theme.lua"),
+	Notify = import("src/utils/notify.lua"),
 }
 
 -- 1. 起動アニメーション
@@ -45,7 +47,7 @@ if type(playStartAnim) == "function" then
 	playStartAnim(CatWare)
 end
 
--- 2. メインGUIを起動
+-- 2. メインGUI起動
 local initMainGui = import("src/gui/main/init.lua")
 if type(initMainGui) == "function" then
 	initMainGui(CatWare)
