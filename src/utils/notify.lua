@@ -47,11 +47,7 @@ function Notify.Send(titleText, bodyText, duration, iconKey)
 	toast.Parent = holder
 	Instance.new("UICorner", toast).CornerRadius = UDim.new(0, 18)
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(255, 255, 255)
-	stroke.Thickness = 1
-	stroke.Transparency = 1
-	stroke.Parent = toast
+local stroke = ThemeRef.GlassStroke(toast, { Transparency = 1 })
 
 	-- Lucide アイコン用の白透け丸ガラスオーブ
 	local orb = Instance.new("Frame")
