@@ -54,12 +54,12 @@ local function initMainGui(CatWare)
 	dim.ZIndex = 1
 	dim.Parent = screenGui
 
-	-- 詳細パネル＋影のラッパー（影と本体が一緒にスケールする）
+	-- 詳細パネル（BentoDeckと同じ476×374サイズ）
 	local pageWrap = Instance.new("Frame")
 	pageWrap.Name = "DetailPanelWrap"
 	pageWrap.AnchorPoint = Vector2.new(0.5, 0.5)
 	pageWrap.Position = UDim2.fromScale(0.5, 0.5)
-	pageWrap.Size = UDim2.fromOffset(456, 408)
+	pageWrap.Size = UDim2.fromOffset(476, 374)
 	pageWrap.BackgroundTransparency = 1
 	pageWrap.Visible = false
 	pageWrap.ZIndex = 10
@@ -70,24 +70,22 @@ local function initMainGui(CatWare)
 	pageScale.Parent = pageWrap
 
 	Shadow.Create(pageWrap, shadowAsset, {
-		Padding = 30,
-		OffsetY = 10,
-		Transparency = 0.28,
+		Padding = 28,
+		OffsetY = 8,
+		Transparency = 0.42,
 		ZIndex = 1,
 	})
 
 	local pagePanel = Instance.new("Frame")
 	pagePanel.Name = "DetailPanel"
 	pagePanel.Size = UDim2.fromScale(1, 1)
-	pagePanel.BackgroundTransparency = 0.08
+	pagePanel.BackgroundTransparency = 0.1
 	pagePanel.ClipsDescendants = true
 	pagePanel.ZIndex = 2
 	Theme.Bind(pagePanel, "BackgroundColor3", "Tile")
 	pagePanel.Parent = pageWrap
 
-	local ppCorner = Instance.new("UICorner")
-	ppCorner.CornerRadius = UDim.new(0, 16)
-	ppCorner.Parent = pagePanel
+	Instance.new("UICorner", pagePanel).CornerRadius = UDim.new(0, 16)
 
 	local ppStroke = Instance.new("UIStroke")
 	ppStroke.Thickness = 1.2
@@ -95,7 +93,7 @@ local function initMainGui(CatWare)
 	Theme.Bind(ppStroke, "Color", "Glow")
 	ppStroke.Parent = pagePanel
 
-	-- 詳細ページヘッダー
+	-- ヘッダー
 	local pHeader = Instance.new("Frame")
 	pHeader.Size = UDim2.new(1, 0, 0, 52)
 	pHeader.BackgroundTransparency = 1
@@ -178,7 +176,7 @@ local function initMainGui(CatWare)
 		return sf
 	end
 
-	-- 最小化アイコン＋ドロップシャドウ
+	-- 最小化アイコン
 	local miniWrap = Instance.new("Frame")
 	miniWrap.AnchorPoint = Vector2.new(0, 0.5)
 	miniWrap.Position = UDim2.new(0, 18, 0.5, 0)
@@ -191,7 +189,7 @@ local function initMainGui(CatWare)
 	Shadow.Create(miniWrap, shadowAsset, {
 		Padding = 18,
 		OffsetY = 5,
-		Transparency = 0.35,
+		Transparency = 0.42,
 		ZIndex = 1,
 	})
 
@@ -211,8 +209,9 @@ local function initMainGui(CatWare)
 	Theme.Bind(ms, "Color", "Glow")
 	ms.Parent = miniBtn
 
-	-- Hub 生成
 	local hub
+	local setOpen
+
 	local function openPage(id, label)
 		currentPageId = id
 		pageTitle.Text = label
@@ -249,10 +248,15 @@ local function initMainGui(CatWare)
 	end
 
 	backBtn.MouseButton1Click:Connect(backToHub)
-	hub = createHub(screenGui, CatWare, Theme, openPage)
 
-	-- 全体の開閉
-	local function setOpen(state, showMini)
+	hub = createHub(screenGui, CatWare, Theme, openPage, track, function(showMini)
+		setOpen(false, showMini)
+		if not showMini then
+			Notify.Send("CatWare", "RightShift キーで再表示できます", 2.5)
+		end
+	end)
+
+	function setOpen(state, showMini)
 		isOpen = state
 		if state then
 			miniWrap.Visible = false
