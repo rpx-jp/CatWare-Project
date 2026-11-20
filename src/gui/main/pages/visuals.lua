@@ -14,14 +14,13 @@ return function(page, ctx)
 		end
 	end)
 
-	C.Slider(page, "タイルの透過度", 0, 45, 14, 1, "%", Theme, ctx.Track, function(val)
+C.Slider(page, "タイルの透過度", 0, 45, 14, 1, "%", Theme, ctx.Track, function(val)
 		local alpha = val / 100
 		for _, t in ipairs(ctx.Hub.Tiles) do
-			t.BackgroundTransparency = alpha
+			t.ImageTransparency = alpha -- ← BackgroundTransparency から変更
 		end
 		ctx.PagePanel.BackgroundTransparency = math.clamp(alpha - 0.04, 0, 0.5)
 	end)
-
 	C.Section(page, "Reset")
 	C.Button(page, "カメラ FOV をデフォルト (70) に戻す", nil, false, Theme, function()
 		if workspace.CurrentCamera then
