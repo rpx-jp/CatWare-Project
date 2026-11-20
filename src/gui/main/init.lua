@@ -67,7 +67,7 @@ local function initMainGui(CatWare)
 	root.Name = "SpatialRoot"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.5)
-	root.Size = UDim2.fromOffset(540, 392)
+	root.Size = UDim2.fromOffset(540, 402)
 	root.BackgroundTransparency = 1
 	root.ZIndex = 10
 	root.Parent = screenGui
