@@ -4,12 +4,14 @@ local TweenService = game:GetService("TweenService")
 local function createHub(parent, CatWare, Theme, onSelectPage)
 	local player = Players.LocalPlayer
 	local logoAsset = CatWare.Assets.Get("cw.png")
+	local shadowAsset = CatWare.Assets.Get("shadow.png")
 	local glowAsset = CatWare.Assets.Get("glow.png")
 	if glowAsset == "" then
 		glowAsset = "rbxassetid://10822615828"
 	end
 
 	local Icons = CatWare.Import("src/gui/main/icons.lua")
+	local Shadow = CatWare.Import("src/utils/shadow.lua")
 
 	local hub = Instance.new("Frame")
 	hub.Name = "BentoHub"
@@ -50,25 +52,46 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 	for _, def in ipairs(tileDefs) do
 		local tileAsset = CatWare.Assets.Get("tile_" .. def.corner .. ".png")
 		local strokeAsset = CatWare.Assets.Get("tile_stroke_" .. def.corner .. ".png")
+		local tileShadowAsset = CatWare.Assets.Get("tile_shadow_" .. def.corner .. ".png")
+
+		-- 影とタイル本体を一緒に拡大するための透明ホルダー
+		local holder = Instance.new("Frame")
+		holder.Name = def.id .. "_Holder"
+		holder.AnchorPoint = Vector2.new(0.5, 0.5)
+		holder.Position = def.pos
+		holder.Size = UDim2.fromOffset(220, 196)
+		holder.BackgroundTransparency = 1
+		holder.ZIndex = 5
+		holder.Parent = hub
+
+		local tScale = Instance.new("UIScale")
+		tScale.Scale = 1
+		tScale.Parent = holder
+
+		-- くり抜きタイル専用ドロップシャドウ（本体の後ろに描画）
+		local tileShadow = Instance.new("ImageLabel")
+		tileShadow.Name = "TileShadow"
+		tileShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+		tileShadow.Position = UDim2.new(0.5, 0, 0.5, 6)
+		tileShadow.Size = UDim2.fromOffset(268, 244)
+		tileShadow.BackgroundTransparency = 1
+		tileShadow.Image = tileShadowAsset
+		tileShadow.ImageTransparency = 0.42
+		tileShadow.ZIndex = 1
+		tileShadow.Parent = holder
 
 		local tile = Instance.new("ImageButton")
 		tile.Name = def.id
-		tile.AnchorPoint = Vector2.new(0.5, 0.5)
-		tile.Position = def.pos
-		tile.Size = UDim2.fromOffset(220, 196)
+		tile.Size = UDim2.fromScale(1, 1)
 		tile.BackgroundTransparency = 1
 		tile.Image = tileAsset
 		tile.ImageTransparency = 0.14
 		tile.AutoButtonColor = false
-		tile.ZIndex = 5
+		tile.ZIndex = 2
 		Theme.Bind(tile, "ImageColor3", "Tile")
-		tile.Parent = hub
+		tile.Parent = holder
 
 		table.insert(tiles, tile)
-
-		local tScale = Instance.new("UIScale")
-		tScale.Scale = 1
-		tScale.Parent = tile
 
 		-- くり抜き形状に沿った枠線
 		local strokeImg = Instance.new("ImageLabel")
@@ -81,7 +104,7 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		Theme.Bind(strokeImg, "ImageColor3", "Glow")
 		strokeImg.Parent = tile
 
-		-- 滑らかな丸い光（くり抜き側へはみ出さないサイズ＆配置）
+		-- 滑らかな丸い光
 		local glow = Instance.new("ImageLabel")
 		glow.Name = "SoftGlow"
 		glow.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -112,9 +135,13 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		Theme.Bind(nameLbl, "TextColor3", "Text")
 		nameLbl.Parent = tile
 
-		-- ホバー：明るく発光 ＋ サイズ拡大Tween
+		-- ホバー：明るく発光 ＋ サイズ拡大 ＋ 影が深くなって浮き上がる
 		tile.MouseEnter:Connect(function()
 			TweenService:Create(tScale, hoverIn, { Scale = 1.035 }):Play()
+			TweenService:Create(tileShadow, hoverIn, {
+				Position = UDim2.new(0.5, 0, 0.5, 12),
+				ImageTransparency = 0.22,
+			}):Play()
 			TweenService:Create(tile, hoverIn, { ImageColor3 = Theme.Current.CardHover }):Play()
 			TweenService:Create(strokeImg, hoverIn, { ImageTransparency = 0.32 }):Play()
 			TweenService:Create(glow, hoverIn, {
@@ -131,6 +158,10 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 
 		tile.MouseLeave:Connect(function()
 			TweenService:Create(tScale, hoverOut, { Scale = 1 }):Play()
+			TweenService:Create(tileShadow, hoverOut, {
+				Position = UDim2.new(0.5, 0, 0.5, 6),
+				ImageTransparency = 0.42,
+			}):Play()
 			TweenService:Create(tile, hoverOut, { ImageColor3 = Theme.Current.Tile }):Play()
 			TweenService:Create(strokeImg, hoverOut, { ImageTransparency = 0.82 }):Play()
 			TweenService:Create(glow, hoverOut, {
@@ -150,7 +181,16 @@ local function createHub(parent, CatWare, Theme, onSelectPage)
 		end)
 	end
 
-	-- 中央プロフィールカード（周りの隙間は完全に透過！）
+	-- 中央プロフィールカードのドロップシャドウ
+	Shadow.Create(hub, shadowAsset, {
+		Name = "ProfileShadow",
+		Position = UDim2.new(0.5, 0, 0.5, 7),
+		Size = UDim2.fromOffset(112 + 48, 112 + 48),
+		Transparency = 0.32,
+		ZIndex = 19,
+	})
+
+	-- 中央プロフィールカード
 	local profile = Instance.new("Frame")
 	profile.Name = "CenterProfile"
 	profile.AnchorPoint = Vector2.new(0.5, 0.5)
