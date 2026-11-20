@@ -10,7 +10,7 @@ return function(parent, text, subtext, isDanger, Theme, callback)
 	btn.Parent = parent
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 14)
 
-local st = Theme.GlassStroke(btn, {
+	local st = Theme.GlassStroke(btn, {
 		Color = isDanger and Color3.fromRGB(255, 110, 105) or Color3.fromRGB(255, 255, 255),
 		Transparency = 0.25,
 	})
@@ -60,12 +60,12 @@ local st = Theme.GlassStroke(btn, {
 
 	btn.MouseEnter:Connect(function()
 		TweenService:Create(btn, TweenInfo.new(0.18), { BackgroundTransparency = hoverAlpha }):Play()
-		TweenService:Create(st, TweenInfo.new(0.18), { Transparency = 0.78 }):Play()
+		TweenService:Create(st, TweenInfo.new(0.18), { Transparency = 0 }):Play()
 		TweenService:Create(chev, TweenInfo.new(0.18), { TextTransparency = 0.15 }):Play()
 	end)
 	btn.MouseLeave:Connect(function()
 		TweenService:Create(btn, TweenInfo.new(0.18), { BackgroundTransparency = baseAlpha }):Play()
-		TweenService:Create(st, TweenInfo.new(0.18), { Transparency = isDanger and 0.78 or 0.90 }):Play()
+		TweenService:Create(st, TweenInfo.new(0.18), { Transparency = 0.25 }):Play()
 		TweenService:Create(chev, TweenInfo.new(0.18), { TextTransparency = 0.55 }):Play()
 	end)
 	btn.MouseButton1Down:Connect(function()
