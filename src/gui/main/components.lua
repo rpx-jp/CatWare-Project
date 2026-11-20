@@ -4,6 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local Components = {}
 
 function Components.Section(parent, text, Theme)
+	Theme = Theme or Components.Theme -- ← この1行を追加
 	local lbl = Instance.new("TextLabel")
 	lbl.Size = UDim2.new(1, 0, 0, 18)
 	lbl.BackgroundTransparency = 1
