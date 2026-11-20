@@ -10,11 +10,10 @@ return function(parent, text, subtext, isDanger, Theme, callback)
 	btn.Parent = parent
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 14)
 
-	local st = Instance.new("UIStroke")
-	st.Color = isDanger and Color3.fromRGB(255, 110, 105) or Color3.fromRGB(255, 255, 255)
-	st.Thickness = 1
-	st.Transparency = isDanger and 0.78 or 0.90
-	st.Parent = btn
+local st = Theme.GlassStroke(btn, {
+		Color = isDanger and Color3.fromRGB(255, 110, 105) or Color3.fromRGB(255, 255, 255),
+		Transparency = 0.25,
+	})
 
 	local sc = Instance.new("UIScale", btn)
 
