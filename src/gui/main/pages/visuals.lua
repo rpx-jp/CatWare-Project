@@ -2,6 +2,7 @@ return function(page, ctx)
 	local C = ctx.Components
 	local Theme = ctx.Theme
 	local Knife = ctx.CatWare.Import("src/features/visuals/knife.lua")
+	Knife.SetAssets(ctx.CatWare.Assets) -- ← この行があるか確認！
 
 	ctx.ScreenGui.Destroying:Connect(function()
 		Knife.SetEnabled(false)
