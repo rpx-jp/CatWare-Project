@@ -131,7 +131,6 @@ local function initMainGui(CatWare)
 	stageGlass.ZIndex = 10
 	stageGlass.Parent = stageWrap
 -- ヘッダー（ここをドラッグすると全体が移動！）
--- ヘッダー（ここをドラッグすると全体が移動！）
 	local header = Instance.new("TextButton")
 	header.Name = "StageHeader"
 	header.Size = UDim2.new(1, 0, 0, 62)
@@ -139,9 +138,10 @@ local function initMainGui(CatWare)
 	header.Text = ""
 	header.AutoButtonColor = false
 	header.Active = true
-	header.ZIndex = 12 -- ← stageGlass(10) より手前にする！
+	header.ZIndex = 12
 	header.Parent = stageWrap
-	-- ↓ 必ずこの下に grip を置く！
+
+	-- VisionOS風 ドラッグ用グリップバー
 	local grip = Instance.new("Frame")
 	grip.AnchorPoint = Vector2.new(0.5, 0)
 	grip.Position = UDim2.new(0.5, 0, 0, 7)
@@ -149,7 +149,7 @@ local function initMainGui(CatWare)
 	grip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	grip.BackgroundTransparency = 0.72
 	grip.BorderSizePixel = 0
-	grip.ZIndex = 8
+	grip.ZIndex = 13
 	grip.Parent = header
 	Instance.new("UICorner", grip).CornerRadius = UDim.new(1, 0)
 
@@ -165,6 +165,35 @@ local function initMainGui(CatWare)
 			BackgroundTransparency = 0.72,
 		}):Play()
 	end)
+
+	-- 確実ドラッグ処理（RenderStepped + GetMouseLocation）
+	local dragging = false
+	local dragStartMouse, startPos
+
+	track(header.MouseButton1Down:Connect(function()
+		dragging = true
+		dragStartMouse = UserInputService:GetMouseLocation()
+		startPos = root.Position
+	end))
+
+	track(UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end))
+
+	track(RunService.RenderStepped:Connect(function()
+		if not dragging then return end
+		if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+			dragging = false
+			return
+		end
+		local d = UserInputService:GetMouseLocation() - dragStartMouse
+		root.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + d.X,
+			startPos.Y.Scale, startPos.Y.Offset + d.Y
+		)
+	end))
 
 	-- ヘッダー左：光るアイコンオーブ＋ページタイトル
 	local orb = Instance.new("Frame")
