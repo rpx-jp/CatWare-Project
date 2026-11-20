@@ -288,6 +288,12 @@ local function makeCtrl(iconId, cx, isClose, cb)
 		b.Parent = dockWrap
 		Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
 
+		-- Vision Pro 上面光沢ガラス縁
+		local st = Theme.GlassStroke(b, {
+			Thickness = 1,
+			Transparency = 0.22,
+		})
+
 		local ic = Instance.new("ImageLabel")
 		ic.AnchorPoint = Vector2.new(0.5, 0.5)
 		ic.Position = UDim2.fromScale(0.5, 0.5)
@@ -304,6 +310,10 @@ local function makeCtrl(iconId, cx, isClose, cb)
 		b.MouseEnter:Connect(function()
 			TweenService:Create(sc, hoverIn, { Scale = 1.12 }):Play()
 			TweenService:Create(ic, hoverIn, { ImageTransparency = 0 }):Play()
+			TweenService:Create(st, hoverIn, {
+				Transparency = 0,
+				Color = isClose and Color3.fromRGB(255, 140, 135) or Color3.fromRGB(255, 255, 255),
+			}):Play()
 			TweenService:Create(b, hoverIn, {
 				BackgroundColor3 = isClose and Color3.fromRGB(255, 85, 80) or Color3.fromRGB(255, 255, 255),
 				BackgroundTransparency = isClose and 0.22 or 0.80,
@@ -312,6 +322,10 @@ local function makeCtrl(iconId, cx, isClose, cb)
 		b.MouseLeave:Connect(function()
 			TweenService:Create(sc, hoverOut, { Scale = 1 }):Play()
 			TweenService:Create(ic, hoverOut, { ImageTransparency = 0.25 }):Play()
+			TweenService:Create(st, hoverOut, {
+				Transparency = 0.22,
+				Color = Color3.fromRGB(255, 255, 255),
+			}):Play()
 			TweenService:Create(b, hoverOut, {
 				BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 				BackgroundTransparency = 0.90,
@@ -322,38 +336,5 @@ local function makeCtrl(iconId, cx, isClose, cb)
 
 	makeCtrl("minus", 349, false, function() onClose(true) end)
 	makeCtrl("close", 395, true, function() onClose(false) end)
-
-	local function setActive(id)
-		activeId = id
-		local target = buttons[id]
-		if not target then return end
-
-		local slideInfo = TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-		TweenService:Create(activePill, slideInfo, { Position = UDim2.fromOffset(target.x, 29) }):Play()
-		TweenService:Create(activeBar, slideInfo, { Position = UDim2.new(0, target.x, 1, -4) }):Play()
-
-		for k, info in pairs(buttons) do
-			local isMe = (k == id)
-			TweenService:Create(info.scale, hoverOut, { Scale = isMe and 1.04 or 1 }):Play()
-			if not info.isAvatar then
-				TweenService:Create(info.visual, hoverOut, {
-					ImageTransparency = isMe and 0 or 0.32,
-					ImageColor3 = isMe and Color3.fromRGB(255, 255, 255) or Theme.Current.Accent,
-				}):Play()
-			else
-				TweenService:Create(info.visual, hoverOut, { BackgroundTransparency = isMe and 0.25 or 0.55 }):Play()
-			end
-			TweenService:Create(info.aura, hoverOut, {
-				ImageTransparency = isMe and 0.72 or 1,
-			}):Play()
-		end
-	end
-
-	return {
-		Frame = dockWrap,
-		Bg = dockBg,
-		SetActive = setActive,
-	}
-end
 
 return createDock
