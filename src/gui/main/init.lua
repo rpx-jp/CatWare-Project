@@ -1,6 +1,8 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 local Lighting = game:GetService("Lighting")
 
 local function initMainGui(CatWare)
@@ -8,9 +10,10 @@ local function initMainGui(CatWare)
 	local Theme = CatWare.Theme
 	local Notify = CatWare.Notify
 	local Shadow = CatWare.Import("src/utils/shadow.lua")
+	local Icons = CatWare.Import("src/gui/main/icons.lua")
 	local createComponents = CatWare.Import("src/gui/main/components/init.lua")
 	local Components = createComponents(CatWare)
-	local createHub = CatWare.Import("src/gui/main/hub.lua")
+	local createDock = CatWare.Import("src/gui/main/dock.lua")
 
 	if playerGui:FindFirstChild("CatWareGui") then
 		playerGui.CatWareGui:Destroy()
@@ -21,6 +24,15 @@ local function initMainGui(CatWare)
 
 	local logoAsset = CatWare.Assets.Get("cw.png")
 	local shadowAsset = CatWare.Assets.Get("shadow.png")
+	local stageBgAsset = CatWare.Assets.Get("stage_bg.png")
+	local stageGlassAsset = CatWare.Assets.Get("stage_glass.png")
+	local stageAuroraAsset = CatWare.Assets.Get("stage_aurora.png")
+	local stageShadowAsset = CatWare.Assets.Get("stage_shadow.png")
+	local glowAsset = CatWare.Assets.Get("glow.png")
+	if glowAsset == "" then
+		glowAsset = "rbxassetid://10822615828"
+	end
+
 	local connections = {}
 	local function track(conn)
 		table.insert(connections, conn)
@@ -35,7 +47,6 @@ local function initMainGui(CatWare)
 	local blurTarget = 14
 	local baseScale = 1
 	local isOpen = true
-	local currentPageId = nil
 
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "CatWareGui"
@@ -54,127 +65,214 @@ local function initMainGui(CatWare)
 	dim.ZIndex = 1
 	dim.Parent = screenGui
 
-	-- 詳細パネル（BentoDeckと同じ476×374サイズ）
-	local pageWrap = Instance.new("Frame")
-	pageWrap.Name = "DetailPanelWrap"
-	pageWrap.AnchorPoint = Vector2.new(0.5, 0.5)
-	pageWrap.Position = UDim2.fromScale(0.5, 0.5)
-	pageWrap.Size = UDim2.fromOffset(476, 374)
-	pageWrap.BackgroundTransparency = 1
-	pageWrap.Visible = false
-	pageWrap.ZIndex = 10
-	pageWrap.Parent = screenGui
+	-- ステージ＋下部ドック全体をまとめるコンテナ（ドラッグ＆拡大縮小が一体で動く）
+	local root = Instance.new("Frame")
+	root.Name = "SpatialRoot"
+	root.AnchorPoint = Vector2.new(0.5, 0.5)
+	root.Position = UDim2.fromScale(0.5, 0.5)
+	root.Size = UDim2.fromOffset(540, 392)
+	root.BackgroundTransparency = 1
+	root.ZIndex = 10
+	root.Parent = screenGui
 
-	local pageScale = Instance.new("UIScale")
-	pageScale.Scale = 0.92
-	pageScale.Parent = pageWrap
+	local rootScale = Instance.new("UIScale")
+	rootScale.Scale = 0.92
+	rootScale.Parent = root
 
-	Shadow.Create(pageWrap, shadowAsset, {
-		Padding = 28,
-		OffsetY = 8,
-		Transparency = 0.42,
-		ZIndex = 1,
-	})
+	-- ==========================================
+	-- メイン・リキッドグラス・ステージ（540 x 312）
+	-- ==========================================
+	local stageWrap = Instance.new("Frame")
+	stageWrap.Name = "GlassStage"
+	stageWrap.Position = UDim2.fromOffset(0, 0)
+	stageWrap.Size = UDim2.fromOffset(540, 312)
+	stageWrap.BackgroundTransparency = 1
+	stageWrap.ZIndex = 5
+	stageWrap.Parent = root
 
-	local pagePanel = Instance.new("Frame")
-	pagePanel.Name = "DetailPanel"
-	pagePanel.Size = UDim2.fromScale(1, 1)
-	pagePanel.BackgroundTransparency = 0.1
-	pagePanel.ClipsDescendants = true
-	pagePanel.ZIndex = 2
-	Theme.Bind(pagePanel, "BackgroundColor3", "Tile")
-	pagePanel.Parent = pageWrap
+	-- 専用ドロップシャドウ
+	local stageShadow = Instance.new("ImageLabel")
+	stageShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	stageShadow.Position = UDim2.new(0.5, 0, 0.5, 10)
+	stageShadow.Size = UDim2.fromOffset(540 + 60, 312 + 60)
+	stageShadow.BackgroundTransparency = 1
+	stageShadow.Image = stageShadowAsset
+	stageShadow.ImageTransparency = 0.32
+	stageShadow.ZIndex = 1
+	stageShadow.Parent = stageWrap
 
-	Instance.new("UICorner", pagePanel).CornerRadius = UDim.new(0, 16)
+	-- ベースシルエット（テーマ色で着色）
+	local stageBg = Instance.new("ImageLabel")
+	stageBg.Name = "StageBg"
+	stageBg.Size = UDim2.fromScale(1, 1)
+	stageBg.BackgroundTransparency = 1
+	stageBg.Image = stageBgAsset
+	stageBg.ImageTransparency = 0.14
+	stageBg.ZIndex = 2
+	Theme.Bind(stageBg, "ImageColor3", "Tile")
+	stageBg.Parent = stageWrap
 
-	local ppStroke = Instance.new("UIStroke")
-	ppStroke.Thickness = 1.2
-	ppStroke.Transparency = 0.8
-	Theme.Bind(ppStroke, "Color", "Glow")
-	ppStroke.Parent = pagePanel
+	-- 角丸に完全マスク済みのオーロラ発光（絶対に角からはみ出ない！）
+	local stageAurora = Instance.new("ImageLabel")
+	stageAurora.Size = UDim2.fromScale(1, 1)
+	stageAurora.BackgroundTransparency = 1
+	stageAurora.Image = stageAuroraAsset
+	stageAurora.ImageTransparency = 0.18
+	stageAurora.ZIndex = 3
+	Theme.Bind(stageAurora, "ImageColor3", "Glow")
+	stageAurora.Parent = stageWrap
 
-	-- ヘッダー
-	local pHeader = Instance.new("Frame")
-	pHeader.Size = UDim2.new(1, 0, 0, 52)
-	pHeader.BackgroundTransparency = 1
-	pHeader.Parent = pagePanel
+	-- 上面がキラッと光るリキッドグラスの縁＆光沢
+	local stageGlass = Instance.new("ImageLabel")
+	stageGlass.Size = UDim2.fromScale(1, 1)
+	stageGlass.BackgroundTransparency = 1
+	stageGlass.Image = stageGlassAsset
+	stageGlass.ImageTransparency = 0.06
+	stageGlass.ZIndex = 10
+	stageGlass.Parent = stageWrap
 
-	local backBtn = Instance.new("TextButton")
-	backBtn.AnchorPoint = Vector2.new(0, 0.5)
-	backBtn.Position = UDim2.new(0, 14, 0.5, 0)
-	backBtn.Size = UDim2.fromOffset(74, 30)
-	backBtn.BackgroundTransparency = 0.12
-	backBtn.Font = Enum.Font.GothamBold
-	backBtn.Text = "← Back"
-	backBtn.TextSize = 12
-	backBtn.AutoButtonColor = false
-	Theme.Bind(backBtn, "BackgroundColor3", "Card")
-	Theme.Bind(backBtn, "TextColor3", "Text")
-	backBtn.Parent = pHeader
-	Instance.new("UICorner", backBtn).CornerRadius = UDim.new(0, 9)
+	-- ヘッダー（ここをドラッグすると全体が移動！）
+	local header = Instance.new("Frame")
+	header.Name = "StageHeader"
+	header.Size = UDim2.new(1, 0, 0, 62)
+	header.BackgroundTransparency = 1
+	header.ZIndex = 6
+	header.Parent = stageWrap
 
-	local backStroke = Instance.new("UIStroke")
-	backStroke.Thickness = 1
-	backStroke.Transparency = 0.85
-	Theme.Bind(backStroke, "Color", "Glow")
-	backStroke.Parent = backBtn
+	-- ドラッグ処理
+	local dragging, dragStart, startPos
+	track(header.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = root.Position
+		end
+	end))
+	track(UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local d = input.Position - dragStart
+			root.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		end
+	end))
+	track(UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end))
 
-	backBtn.MouseEnter:Connect(function()
-		TweenService:Create(backBtn, TweenInfo.new(0.15), { BackgroundColor3 = Theme.Current.CardHover }):Play()
-	end)
-	backBtn.MouseLeave:Connect(function()
-		TweenService:Create(backBtn, TweenInfo.new(0.15), { BackgroundColor3 = Theme.Current.Card }):Play()
-	end)
+	-- ヘッダー左：光るアイコンオーブ＋ページタイトル
+	local orb = Instance.new("Frame")
+	orb.AnchorPoint = Vector2.new(0, 0.5)
+	orb.Position = UDim2.new(0, 20, 0.5, 0)
+	orb.Size = UDim2.fromOffset(36, 36)
+	orb.BackgroundTransparency = 0.25
+	orb.ZIndex = 7
+	Theme.Bind(orb, "BackgroundColor3", "Card")
+	orb.Parent = header
+	Instance.new("UICorner", orb).CornerRadius = UDim.new(1, 0)
 
-	local pageTitle = Instance.new("TextLabel")
-	pageTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-	pageTitle.Position = UDim2.fromScale(0.5, 0.5)
-	pageTitle.Size = UDim2.fromOffset(220, 24)
-	pageTitle.BackgroundTransparency = 1
-	pageTitle.Font = Enum.Font.GothamBold
-	pageTitle.Text = ""
-	pageTitle.TextSize = 16
-	Theme.Bind(pageTitle, "TextColor3", "Text")
-	pageTitle.Parent = pHeader
+	local orbGlow = Instance.new("ImageLabel")
+	orbGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+	orbGlow.Position = UDim2.fromScale(0.5, 0.5)
+	orbGlow.Size = UDim2.fromOffset(52, 52)
+	orbGlow.BackgroundTransparency = 1
+	orbGlow.Image = glowAsset
+	orbGlow.ImageTransparency = 0.65
+	orbGlow.ZIndex = 6
+	Theme.Bind(orbGlow, "ImageColor3", "Glow")
+	orbGlow.Parent = orb
 
+	local headerIcon = Instance.new("ImageLabel")
+	headerIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+	headerIcon.Position = UDim2.fromScale(0.5, 0.5)
+	headerIcon.Size = UDim2.fromOffset(18, 18)
+	headerIcon.BackgroundTransparency = 1
+	headerIcon.ScaleType = Enum.ScaleType.Fit
+	headerIcon.ZIndex = 8
+	Theme.Bind(headerIcon, "ImageColor3", "Accent")
+	headerIcon.Parent = orb
+
+	local headerTitle = Instance.new("TextLabel")
+	headerTitle.Position = UDim2.fromOffset(68, 12)
+	headerTitle.Size = UDim2.new(0, 240, 0, 22)
+	headerTitle.BackgroundTransparency = 1
+	headerTitle.Font = Enum.Font.GothamBold
+	headerTitle.Text = "Home"
+	headerTitle.TextSize = 17
+	headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+	headerTitle.ZIndex = 7
+	Theme.Bind(headerTitle, "TextColor3", "Text")
+	headerTitle.Parent = header
+
+	local headerSub = Instance.new("TextLabel")
+	headerSub.Position = UDim2.fromOffset(68, 35)
+	headerSub.Size = UDim2.new(0, 280, 0, 14)
+	headerSub.BackgroundTransparency = 1
+	headerSub.Font = Enum.Font.Gotham
+	headerSub.Text = "CatWare Spatial Interface"
+	headerSub.TextSize = 11
+	headerSub.TextXAlignment = Enum.TextXAlignment.Left
+	headerSub.ZIndex = 7
+	Theme.Bind(headerSub, "TextColor3", "SubText")
+	headerSub.Parent = header
+
+	-- ヘッダー右：ミニマルな FPS / Ping ピル
+	local statPill = Instance.new("TextLabel")
+	statPill.AnchorPoint = Vector2.new(1, 0.5)
+	statPill.Position = UDim2.new(1, -20, 0.5, 0)
+	statPill.Size = UDim2.fromOffset(122, 26)
+	statPill.BackgroundTransparency = 0.35
+	statPill.Font = Enum.Font.GothamMedium
+	statPill.Text = "-- FPS • -- ms"
+	statPill.TextSize = 11
+	statPill.ZIndex = 7
+	Theme.Bind(statPill, "BackgroundColor3", "Card")
+	Theme.Bind(statPill, "TextColor3", "SubText")
+	statPill.Parent = header
+	Instance.new("UICorner", statPill).CornerRadius = UDim.new(1, 0)
+
+	local fc, fl = 0, os.clock()
+	track(RunService.RenderStepped:Connect(function()
+		if not root.Visible then return end
+		fc += 1
+		local now = os.clock()
+		if now - fl >= 0.5 then
+			local fps = math.floor(fc / (now - fl) + 0.5)
+			fc, fl = 0, now
+			local ok, ping = pcall(function()
+				return math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+			end)
+			statPill.Text = tostring(fps) .. " FPS • " .. (ok and tostring(ping) or "--") .. " ms"
+		end
+	end))
+
+	-- 両端がふんわり消える区切り線
 	local div = Instance.new("Frame")
-	div.Position = UDim2.fromOffset(0, 52)
-	div.Size = UDim2.new(1, 0, 0, 1)
+	div.Position = UDim2.fromOffset(20, 62)
+	div.Size = UDim2.new(1, -40, 0, 1)
 	div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	div.BackgroundTransparency = 0.9
+	div.BackgroundTransparency = 0.78
 	div.BorderSizePixel = 0
-	div.Parent = pagePanel
+	div.ZIndex = 6
+	div.Parent = stageWrap
 
-	-- 各ページ格納用
-	local pageFrames = {}
-	local function makePageContainer(id)
-		local sf = Instance.new("ScrollingFrame")
-		sf.Name = id
-		sf.Position = UDim2.fromOffset(0, 54)
-		sf.Size = UDim2.new(1, 0, 1, -54)
-		sf.BackgroundTransparency = 1
-		sf.BorderSizePixel = 0
-		sf.ScrollBarThickness = 3
-		sf.CanvasSize = UDim2.new(0, 0, 0, 0)
-		sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		sf.Visible = false
-		sf.Parent = pagePanel
+	local divGrad = Instance.new("UIGradient")
+	divGrad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.15, 0),
+		NumberSequenceKeypoint.new(0.85, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	divGrad.Parent = div
 
-		local list = Instance.new("UIListLayout")
-		list.SortOrder = Enum.SortOrder.LayoutOrder
-		list.Padding = UDim.new(0, 8)
-		list.Parent = sf
-
-		local pad = Instance.new("UIPadding")
-		pad.PaddingTop = UDim.new(0, 12)
-		pad.PaddingBottom = UDim.new(0, 14)
-		pad.PaddingLeft = UDim.new(0, 16)
-		pad.PaddingRight = UDim.new(0, 16)
-		pad.Parent = sf
-
-		pageFrames[id] = sf
-		return sf
-	end
+	-- ページ切り替え領域
+	local pageHolder = Instance.new("Frame")
+	pageHolder.Position = UDim2.fromOffset(0, 64)
+	pageHolder.Size = UDim2.new(1, 0, 1, -72)
+	pageHolder.BackgroundTransparency = 1
+	pageHolder.ClipsDescendants = true
+	pageHolder.ZIndex = 6
+	pageHolder.Parent = stageWrap
 
 	-- 最小化アイコン
 	local miniWrap = Instance.new("Frame")
@@ -186,12 +284,7 @@ local function initMainGui(CatWare)
 	miniWrap.ZIndex = 30
 	miniWrap.Parent = screenGui
 
-	Shadow.Create(miniWrap, shadowAsset, {
-		Padding = 18,
-		OffsetY = 5,
-		Transparency = 0.42,
-		ZIndex = 1,
-	})
+	Shadow.Create(miniWrap, shadowAsset, { Padding = 18, OffsetY = 5, Transparency = 0.4, ZIndex = 1 })
 
 	local miniBtn = Instance.new("ImageButton")
 	miniBtn.Size = UDim2.fromScale(1, 1)
@@ -209,47 +302,74 @@ local function initMainGui(CatWare)
 	Theme.Bind(ms, "Color", "Glow")
 	ms.Parent = miniBtn
 
-	local hub
+	-- ページ定義
+	local navItems = {
+		{ id = "home",     label = "Home",      sub = "Overview & Live Telemetry",     path = "src/gui/main/pages/home.lua",     isAvatar = true },
+		{ id = "visuals",  label = "Visuals",   sub = "Atmosphere, Blur & Camera",     path = "src/gui/main/pages/visuals.lua" },
+		{ id = "models",   label = "3D Models", sub = "HUD & Screen Overlays",         path = "src/gui/main/pages/models.lua" },
+		{ id = "settings", label = "Settings",  sub = "Interface Scale & System",      path = "src/gui/main/pages/settings.lua" },
+		{ id = "themes",   label = "Themes",    sub = "Color & Glass Presets",         path = "src/gui/main/pages/themes.lua" },
+	}
+
+	local pageFrames = {}
+	local itemById = {}
+	for _, item in ipairs(navItems) do
+		itemById[item.id] = item
+		local sf = Instance.new("ScrollingFrame")
+		sf.Name = item.id
+		sf.Size = UDim2.fromScale(1, 1)
+		sf.BackgroundTransparency = 1
+		sf.BorderSizePixel = 0
+		sf.ScrollBarThickness = 3
+		sf.CanvasSize = UDim2.new(0, 0, 0, 0)
+		sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		sf.Visible = false
+		sf.Parent = pageHolder
+
+		local list = Instance.new("UIListLayout")
+		list.SortOrder = Enum.SortOrder.LayoutOrder
+		list.Padding = UDim.new(0, 8)
+		list.Parent = sf
+
+		local pad = Instance.new("UIPadding")
+		pad.PaddingTop = UDim.new(0, 10)
+		pad.PaddingBottom = UDim.new(0, 12)
+		pad.PaddingLeft = UDim.new(0, 20)
+		pad.PaddingRight = UDim.new(0, 20)
+		pad.Parent = sf
+
+		pageFrames[item.id] = sf
+	end
+
+	local dock
 	local setOpen
 
-	local function openPage(id, label)
-		currentPageId = id
-		pageTitle.Text = label
-		for k, f in pairs(pageFrames) do
-			f.Visible = (k == id)
+	local function selectPage(id)
+		local info = itemById[id]
+		if not info then return end
+
+		headerTitle.Text = info.label
+		headerSub.Text = info.sub
+		headerIcon.Image = Icons.Get(id)
+
+		for k, sf in pairs(pageFrames) do
+			if k == id then
+				sf.Visible = true
+				sf.Position = UDim2.fromOffset(18, 0)
+				TweenService:Create(sf, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Position = UDim2.fromOffset(0, 0),
+				}):Play()
+			else
+				sf.Visible = false
+			end
 		end
 
-		TweenService:Create(hub.Scale, TweenInfo.new(0.18, Enum.EasingStyle.Quint), { Scale = baseScale * 0.92 }):Play()
-		task.delay(0.15, function()
-			if currentPageId then
-				hub.Frame.Visible = false
-				pageWrap.Visible = true
-				pageScale.Scale = baseScale * 0.92
-				TweenService:Create(pageScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-					Scale = baseScale,
-				}):Play()
-			end
-		end)
+		if dock then
+			dock.SetActive(id)
+		end
 	end
 
-	local function backToHub()
-		currentPageId = nil
-		TweenService:Create(pageScale, TweenInfo.new(0.16, Enum.EasingStyle.Quint), { Scale = baseScale * 0.92 }):Play()
-		task.delay(0.14, function()
-			if not currentPageId and isOpen then
-				pageWrap.Visible = false
-				hub.Frame.Visible = true
-				hub.Scale.Scale = baseScale * 0.92
-				TweenService:Create(hub.Scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-					Scale = baseScale,
-				}):Play()
-			end
-		end)
-	end
-
-	backBtn.MouseButton1Click:Connect(backToHub)
-
-	hub = createHub(screenGui, CatWare, Theme, openPage, track, function(showMini)
+	dock = createDock(root, CatWare, Theme, navItems, selectPage, function(showMini)
 		setOpen(false, showMini)
 		if not showMini then
 			Notify.Send("CatWare", "RightShift キーで再表示できます", 2.5)
@@ -261,26 +381,20 @@ local function initMainGui(CatWare)
 		if state then
 			miniWrap.Visible = false
 			dim.Visible = true
+			root.Visible = true
+			rootScale.Scale = baseScale * 0.92
 			TweenService:Create(blur, TweenInfo.new(0.28), { Size = blurTarget }):Play()
-			TweenService:Create(dim, TweenInfo.new(0.28), { BackgroundTransparency = 0.58 }):Play()
-			if currentPageId then
-				pageWrap.Visible = true
-				pageScale.Scale = baseScale * 0.92
-				TweenService:Create(pageScale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = baseScale }):Play()
-			else
-				hub.Frame.Visible = true
-				hub.Scale.Scale = baseScale * 0.92
-				TweenService:Create(hub.Scale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = baseScale }):Play()
-			end
+			TweenService:Create(dim, TweenInfo.new(0.28), { BackgroundTransparency = 0.56 }):Play()
+			TweenService:Create(rootScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+				Scale = baseScale,
+			}):Play()
 		else
 			TweenService:Create(blur, TweenInfo.new(0.2), { Size = 0 }):Play()
 			TweenService:Create(dim, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
-			TweenService:Create(hub.Scale, TweenInfo.new(0.18), { Scale = baseScale * 0.92 }):Play()
-			TweenService:Create(pageScale, TweenInfo.new(0.18), { Scale = baseScale * 0.92 }):Play()
+			TweenService:Create(rootScale, TweenInfo.new(0.18), { Scale = baseScale * 0.92 }):Play()
 			task.delay(0.2, function()
 				if not isOpen then
-					hub.Frame.Visible = false
-					pageWrap.Visible = false
+					root.Visible = false
 					dim.Visible = false
 					if showMini then
 						miniWrap.Visible = true
@@ -296,9 +410,7 @@ local function initMainGui(CatWare)
 
 	local function unload()
 		for _, c in ipairs(connections) do
-			pcall(function()
-				c:Disconnect()
-			end)
+			pcall(function() c:Disconnect() end)
 		end
 		blur:Destroy()
 		screenGui:Destroy()
@@ -310,8 +422,8 @@ local function initMainGui(CatWare)
 		Notify = Notify,
 		Components = Components,
 		ScreenGui = screenGui,
-		Hub = hub,
-		PagePanel = pagePanel,
+		Hub = { Tiles = { stageBg, dock.Bg } },
+		PagePanel = stageBg,
 		LogoAsset = logoAsset,
 		Track = track,
 		SetBlurTarget = function(val)
@@ -322,8 +434,7 @@ local function initMainGui(CatWare)
 		end,
 		SetBaseScale = function(val)
 			baseScale = val
-			hub.Scale.Scale = val
-			pageScale.Scale = val
+			rootScale.Scale = val
 		end,
 		Minimize = function()
 			setOpen(false, true)
@@ -331,32 +442,23 @@ local function initMainGui(CatWare)
 		Unload = unload,
 	}
 
-	for _, p in ipairs({
-		{ id = "visuals",  path = "src/gui/main/pages/visuals.lua" },
-		{ id = "models",   path = "src/gui/main/pages/models.lua" },
-		{ id = "settings", path = "src/gui/main/pages/settings.lua" },
-		{ id = "themes",   path = "src/gui/main/pages/themes.lua" },
-	}) do
-		local container = makePageContainer(p.id)
-		local builder = CatWare.Import(p.path)
+	for _, item in ipairs(navItems) do
+		local builder = CatWare.Import(item.path)
 		if type(builder) == "function" then
-			builder(container, ctx)
+			builder(pageFrames[item.id], ctx)
 		end
 	end
 
 	track(UserInputService.InputBegan:Connect(function(input, gp)
-		if gp then
-			return
-		end
+		if gp then return end
 		if input.KeyCode == Enum.KeyCode.RightShift then
 			setOpen(not isOpen, false)
-		elseif input.KeyCode == Enum.KeyCode.Backspace and isOpen and currentPageId then
-			backToHub()
 		end
 	end))
 
+	selectPage("home")
 	setOpen(true, false)
-	Notify.Send("CatWare", "起動完了 (RightShift で開閉)", 3)
+	Notify.Send("CatWare", "Spatial Glass v3 起動完了", 2.5)
 end
 
 return initMainGui
