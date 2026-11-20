@@ -2,90 +2,69 @@ local TweenService = game:GetService("TweenService")
 
 return function(parent, text, default, Theme, callback)
 	local state = default or false
+	local APPLE_GREEN = Color3.fromRGB(52, 199, 89)
+	local OFF_BG = Color3.fromRGB(255, 255, 255)
 
 	local row = Instance.new("TextButton")
-	row.Size = UDim2.new(1, 0, 0, 44)
-	row.BackgroundTransparency = 0.14
+	row.Size = UDim2.new(1, 0, 0, 46)
+	row.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	row.BackgroundTransparency = 0.91
 	row.Text = ""
 	row.AutoButtonColor = false
-	Theme.Bind(row, "BackgroundColor3", "Card")
 	row.Parent = parent
-	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 12)
+	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 14)
 
 	local st = Instance.new("UIStroke")
+	st.Color = Color3.fromRGB(255, 255, 255)
 	st.Thickness = 1
-	st.Transparency = 0.86
-	Theme.Bind(st, "Color", "Glow")
+	st.Transparency = 0.90
 	st.Parent = row
 
-	local sheen = Instance.new("Frame")
-	sheen.Size = UDim2.fromScale(1, 1)
-	sheen.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	sheen.BackgroundTransparency = 1
-	sheen.BorderSizePixel = 0
-	sheen.Parent = row
-	Instance.new("UICorner", sheen).CornerRadius = UDim.new(0, 12)
-
 	local lbl = Instance.new("TextLabel")
-	lbl.Position = UDim2.fromOffset(14, 0)
-	lbl.Size = UDim2.new(1, -110, 1, 0)
+	lbl.Position = UDim2.fromOffset(16, 0)
+	lbl.Size = UDim2.new(1, -82, 1, 0)
 	lbl.BackgroundTransparency = 1
-	lbl.Font = Enum.Font.GothamBold
+	lbl.Font = Enum.Font.GothamMedium
 	lbl.Text = text
+	lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 	lbl.TextSize = 13
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	Theme.Bind(lbl, "TextColor3", "Text")
 	lbl.Parent = row
-
-	local stateLbl = Instance.new("TextLabel")
-	stateLbl.AnchorPoint = Vector2.new(1, 0.5)
-	stateLbl.Position = UDim2.new(1, -62, 0.5, 0)
-	stateLbl.Size = UDim2.fromOffset(30, 16)
-	stateLbl.BackgroundTransparency = 1
-	stateLbl.Font = Enum.Font.GothamBold
-	stateLbl.Text = state and "ON" or "OFF"
-	stateLbl.TextSize = 10
-	stateLbl.TextXAlignment = Enum.TextXAlignment.Right
-	stateLbl.TextColor3 = state and Theme.Current.Accent or Theme.Current.SubText
-	stateLbl.Parent = row
 
 	local pill = Instance.new("Frame")
 	pill.AnchorPoint = Vector2.new(1, 0.5)
-	pill.Position = UDim2.new(1, -12, 0.5, 0)
-	pill.Size = UDim2.fromOffset(42, 22)
-	pill.BackgroundColor3 = state and Theme.Current.Accent or Color3.fromRGB(48, 52, 66)
+	pill.Position = UDim2.new(1, -14, 0.5, 0)
+	pill.Size = UDim2.fromOffset(46, 26)
+	pill.BackgroundColor3 = state and APPLE_GREEN or OFF_BG
+	pill.BackgroundTransparency = state and 0 or 0.78
+	pill.BorderSizePixel = 0
 	pill.Parent = row
 	Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
 
 	local knob = Instance.new("Frame")
 	knob.AnchorPoint = Vector2.new(0, 0.5)
-	knob.Position = state and UDim2.new(0, 23, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
-	knob.Size = UDim2.fromOffset(16, 16)
-	knob.BackgroundColor3 = state and Color3.fromRGB(16, 18, 24) or Color3.fromRGB(240, 244, 255)
+	knob.Position = state and UDim2.new(0, 22, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)
+	knob.Size = UDim2.fromOffset(22, 22)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	knob.BorderSizePixel = 0
 	knob.Parent = pill
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
 	row.MouseEnter:Connect(function()
-		TweenService:Create(sheen, TweenInfo.new(0.16), { BackgroundTransparency = 0.94 }):Play()
-		TweenService:Create(st, TweenInfo.new(0.16), { Transparency = 0.58 }):Play()
+		TweenService:Create(row, TweenInfo.new(0.18), { BackgroundTransparency = 0.85 }):Play()
 	end)
 	row.MouseLeave:Connect(function()
-		TweenService:Create(sheen, TweenInfo.new(0.16), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(st, TweenInfo.new(0.16), { Transparency = 0.86 }):Play()
+		TweenService:Create(row, TweenInfo.new(0.18), { BackgroundTransparency = 0.91 }):Play()
 	end)
 
 	row.MouseButton1Click:Connect(function()
 		state = not state
-		stateLbl.Text = state and "ON" or "OFF"
-		TweenService:Create(stateLbl, TweenInfo.new(0.18), {
-			TextColor3 = state and Theme.Current.Accent or Theme.Current.SubText,
+		TweenService:Create(pill, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
+			BackgroundColor3 = state and APPLE_GREEN or OFF_BG,
+			BackgroundTransparency = state and 0 or 0.78,
 		}):Play()
-		TweenService:Create(pill, TweenInfo.new(0.18), {
-			BackgroundColor3 = state and Theme.Current.Accent or Color3.fromRGB(48, 52, 66),
-		}):Play()
-		TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Quint), {
-			Position = state and UDim2.new(0, 23, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
-			BackgroundColor3 = state and Color3.fromRGB(16, 18, 24) or Color3.fromRGB(240, 244, 255),
+		TweenService:Create(knob, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
+			Position = state and UDim2.new(0, 22, 0.5, 0) or UDim2.new(0, 2, 0.5, 0),
 		}):Play()
 		if callback then callback(state) end
 	end)
