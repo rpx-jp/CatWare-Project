@@ -1,17 +1,27 @@
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
 
--- SHOCKWAVES: ジャンプした時にピンクの半透明ブロックが衝撃波のように段階的に広がる
+-- SHOCKWAVES (v2): ジャンプすると足元から地面のブロックが同心円状に隆起して外へ伝わっていく。
+-- 1ブロック(3stud)単位のタイルが、中心からの距離に応じた時間差でせり上がり → 沈みながらフェードアウト。
+-- API は v1 と互換 (SetEnabled / SetScale / SetColor / IsEnabled) + SetSpeed / SetTrigger を追加。
 local Shockwave = {}
 
-local enabled = false
-local maxScale = 1.0
-local color = Color3.fromRGB(255, 105, 180)
-local connections = {}
-local folder = nil
+local BLOCK = 3 -- 1ブロック = 3 stud
+local MAX_ACTIVE = 700 -- 同時に存在できるタイル数の上限 (連続ジャンプ対策)
 
-local BLOCK = 3 -- このゲームのブロック単位 (3スタッド)
+local enabled = false
+local scale = 1.0 -- 衝撃波の規模 (半径にかかる)
+local speed = 1.0 -- 伝播スピード
+local color = Color3.fromRGB(255, 105, 180)
+local tintMix = 0.7 -- 0 = 地面の色そのまま / 1 = 指定色
+local triggerJump, triggerLand = true, false
+
+local connections = {}
+local charConns = {}
+local folder = nil
+local active = {} -- { part, t0, delay, life, base, lift, startT }
+local pool = {}
+local heartbeat = nil
 
 local function getFolder()
 	if not folder or not folder.Parent then
@@ -22,140 +32,268 @@ local function getFolder()
 	return folder
 end
 
-local function makePart(name, transparency)
-	local part = Instance.new("Part")
-	part.Name = name
+local function acquire()
+	local part = table.remove(pool)
+	if part then
+		return part
+	end
+	part = Instance.new("Part")
+	part.Name = "ShockwaveTile"
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
-	part.Material = Enum.Material.Neon
-	part.Color = color
-	part.Transparency = transparency
+	part.Material = Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
 	return part
 end
 
-local function groundPosition(rootPart)
+local function release(part)
+	part.Parent = nil
+	if #pool < 400 then
+		table.insert(pool, part)
+	else
+		part:Destroy()
+	end
+end
+
+-- ===== 毎フレームの更新 (タイル1枚ごとの Tween はやめて1ループで処理) =====
+local function easeOutQuad(x)
+	return 1 - (1 - x) * (1 - x)
+end
+
+local function step()
+	local now = os.clock()
+	local i = 1
+	while i <= #active do
+		local a = active[i]
+		local age = now - a.t0 - a.delay
+		local part = a.part
+		if age < 0 then
+			i += 1
+		elseif age >= a.life then
+			release(part)
+			active[i] = active[#active]
+			active[#active] = nil
+		else
+			if part.Parent == nil then
+				part.Parent = getFolder()
+			end
+			local u = age / a.life
+			-- 前半 28% でぐっとせり上がり、残りでゆっくり沈みつつ透明に
+			local rise = 0.28
+			local h
+			if u < rise then
+				h = easeOutQuad(u / rise)
+			else
+				local d = (u - rise) / (1 - rise)
+				h = 1 - d * d
+			end
+			local y = a.lift * h
+			part.CFrame = CFrame.new(a.base + Vector3.new(0, y + a.thick / 2, 0))
+			local fade = u < rise and 0 or ((u - rise) / (1 - rise))
+			part.Transparency = a.startT + (1 - a.startT) * fade * fade
+			i += 1
+		end
+	end
+	if #active == 0 and heartbeat then
+		heartbeat:Disconnect()
+		heartbeat = nil
+	end
+end
+
+local function ensureLoop()
+	if not heartbeat then
+		heartbeat = RunService.Heartbeat:Connect(step)
+	end
+end
+
+-- ===== 衝撃波の生成 =====
+local function spawnShockwave(rootPart, groundHint)
+	if not enabled then
+		return
+	end
+
+	local character = rootPart.Parent
+	local f = getFolder()
+
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { rootPart.Parent, getFolder() }
+	params.FilterDescendantsInstances = { character, f }
 
-	local hit = workspace:Raycast(rootPart.Position, Vector3.new(0, -10, 0), params)
-	if hit then
-		return hit.Position
+	-- 足元の地面
+	local origin = rootPart.Position
+	local center = workspace:Raycast(origin, Vector3.new(0, -12, 0), params)
+	local centerPos = center and center.Position or groundHint
+	if not centerPos then
+		return
 	end
-	return rootPart.Position - Vector3.new(0, 3, 0)
-end
 
--- ブロック単位で段階的に広がる半透明の波
-local function spawnWave(basePos, maxRadius, startTransparency, stepDelay, lift)
-	local f = getFolder()
-	local cf = CFrame.new(basePos + Vector3.new(0, 0.06, 0))
+	local radius = math.clamp(math.floor(5 * scale + 0.5), 2, 12) -- ブロック数
+	local stepDelay = 0.05 / speed -- 1リングごとの遅延
+	local life = 0.34 / math.sqrt(speed)
+	local t0 = os.clock()
 
-	local wave = makePart("ShockwaveWave", startTransparency)
-	wave.Size = Vector3.new(BLOCK, 0.4, BLOCK)
-	wave.CFrame = cf
-	wave.Parent = f
+	-- プレイヤー足元を原点に、3stud グリッドのセルを走査
+	local gx = math.floor(centerPos.X / BLOCK + 0.5) * BLOCK
+	local gz = math.floor(centerPos.Z / BLOCK + 0.5) * BLOCK
+	local castFromY = centerPos.Y + 4
 
-	task.spawn(function()
-		local steps = 6
-		for i = 1, steps do
-			if not enabled or not wave.Parent then
-				return
+	local count = 0
+	for dx = -radius, radius do
+		for dz = -radius, radius do
+			local dist = math.sqrt(dx * dx + dz * dz)
+			if dist <= radius + 0.25 then
+				if #active + count >= MAX_ACTIVE then
+					break
+				end
+				local x = gx + dx * BLOCK
+				local z = gz + dz * BLOCK
+				local hit = workspace:Raycast(Vector3.new(x, castFromY, z), Vector3.new(0, -12, 0), params)
+				if hit and hit.Normal.Y > 0.7 then
+					local ring = math.floor(dist + 0.5)
+					local falloff = 1 - (dist / (radius + 1)) -- 外側ほど低く
+					local thick = 0.9
+					local part = acquire()
+					local base = hit.Position + Vector3.new(0, 0.03, 0)
+					local groundColor = hit.Instance:IsA("BasePart") and hit.Instance.Color or color
+					part.Size = Vector3.new(BLOCK - 0.2, thick, BLOCK - 0.2)
+					part.Color = groundColor:Lerp(color, tintMix)
+					part.Transparency = 1
+					part.CFrame = CFrame.new(base + Vector3.new(0, thick / 2, 0))
+					-- 親は step() で表示開始時に設定 (delay 中は非表示)
+					table.insert(active, {
+						part = part,
+						t0 = t0,
+						delay = ring * stepDelay,
+						life = life,
+						base = base,
+						thick = thick,
+						lift = (1.0 + 2.6 * falloff) * (0.7 + 0.3 * scale),
+						startT = 0.15 + 0.35 * (1 - falloff),
+					})
+					count += 1
+				end
 			end
-			local size = BLOCK + (maxRadius - BLOCK) * (i / steps)
-			size = math.floor(size / BLOCK + 0.5) * BLOCK -- ブロック単位にスナップ
-			wave.Size = Vector3.new(size, 0.4, size)
-			wave.Transparency = startTransparency + 0.4 * (i / steps)
-			wave.CFrame = cf + Vector3.new(0, lift * (i / steps), 0)
-			task.wait(stepDelay)
 		end
-		if wave.Parent then
-			TweenService:Create(wave, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-				Transparency = 1,
-			}):Play()
-			Debris:AddItem(wave, 0.35)
-		end
-	end)
+	end
+
+	if count > 0 then
+		ensureLoop()
+	end
 end
 
-local function spawnCubeBurst(basePos)
-	local f = getFolder()
-	local startPos = basePos + Vector3.new(0, 1.4, 0)
-
-	local cube = makePart("ShockwaveCube", 0.35)
-	cube.Size = Vector3.new(BLOCK, BLOCK, BLOCK)
-	cube.CFrame = CFrame.new(startPos)
-	cube.Parent = f
-
-	TweenService:Create(cube, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-		Size = Vector3.new(BLOCK * 2.2, BLOCK * 2.2, BLOCK * 2.2) * maxScale,
-		Transparency = 1,
-		CFrame = CFrame.new(startPos + Vector3.new(0, 1.8, 0)),
-	}):Play()
-
-	Debris:AddItem(cube, 0.55)
-end
-
-local function spawnShockwave(rootPart)
-	if not enabled then return end
-	local basePos = groundPosition(rootPart)
-
-	-- 1波目: 地面を覆う半透明ブロック層
-	spawnWave(basePos, 24 * maxScale, 0.45, 0.06, 0.25)
-	-- 発光キューブのバースト
-	spawnCubeBurst(basePos)
-	-- 2波目: すこし遅れて追従
-	task.delay(0.12, function()
-		if not enabled then return end
-		spawnWave(basePos, 15 * maxScale, 0.6, 0.07, 0.45)
-	end)
+-- ===== トリガー =====
+local function clearCharConns()
+	for _, c in ipairs(charConns) do
+		pcall(function()
+			c:Disconnect()
+		end)
+	end
+	charConns = {}
 end
 
 local function hookCharacter(character)
+	clearCharConns()
 	local humanoid = character:WaitForChild("Humanoid", 8)
-	if not humanoid then return end
-	table.insert(connections, humanoid.StateChanged:Connect(function(_, newState)
-		if newState == Enum.HumanoidStateType.Jumping then
-			local root = character:FindFirstChild("HumanoidRootPart")
-			if root then
-				spawnShockwave(root)
-			end
-		end
-	end))
-end
-
-local function disconnectAll()
-	for _, conn in ipairs(connections) do
-		pcall(function() conn:Disconnect() end)
+	local root = character:WaitForChild("HumanoidRootPart", 8)
+	if not humanoid or not root then
+		return
 	end
-	connections = {}
+
+	table.insert(
+		charConns,
+		humanoid.StateChanged:Connect(function(old, new)
+			if triggerJump and new == Enum.HumanoidStateType.Jumping then
+				spawnShockwave(root)
+			elseif triggerLand and new == Enum.HumanoidStateType.Landed then
+				spawnShockwave(root, root.Position - Vector3.new(0, humanoid.HipHeight + root.Size.Y / 2, 0))
+			end
+		end)
+	)
 end
 
-function Shockwave.SetEnabled(on)
-	if enabled == on then return end
-	enabled = on
-	disconnectAll()
+local function stopAll()
+	if heartbeat then
+		heartbeat:Disconnect()
+		heartbeat = nil
+	end
+	for _, a in ipairs(active) do
+		pcall(function()
+			a.part:Destroy()
+		end)
+	end
+	active = {}
+	for _, p in ipairs(pool) do
+		pcall(function()
+			p:Destroy()
+		end)
+	end
+	pool = {}
 	if folder then
 		folder:Destroy()
 		folder = nil
 	end
+end
+
+function Shockwave.SetEnabled(on)
+	if enabled == on then
+		return
+	end
+	enabled = on
+
+	for _, c in ipairs(connections) do
+		pcall(function()
+			c:Disconnect()
+		end)
+	end
+	connections = {}
+	clearCharConns()
+	stopAll()
+
 	if on then
 		local player = Players.LocalPlayer
 		if player.Character then
-			hookCharacter(player.Character)
+			task.spawn(hookCharacter, player.Character)
 		end
 		table.insert(connections, player.CharacterAdded:Connect(hookCharacter))
 	end
 end
 
 function Shockwave.SetScale(val)
-	maxScale = val
+	scale = val
+end
+
+function Shockwave.SetSpeed(val)
+	speed = math.max(0.3, val)
 end
 
 function Shockwave.SetColor(c)
 	color = c
+end
+
+function Shockwave.SetTintMix(v)
+	tintMix = math.clamp(v, 0, 1)
+end
+
+-- which = "jump" | "land"
+function Shockwave.SetTrigger(which, on)
+	if which == "jump" then
+		triggerJump = on
+	elseif which == "land" then
+		triggerLand = on
+	end
+end
+
+-- テスト・手動発火用
+function Shockwave.Fire()
+	local char = Players.LocalPlayer.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if root then
+		spawnShockwave(root)
+	end
 end
 
 function Shockwave.IsEnabled()
