@@ -45,6 +45,10 @@ return function(page, ctx)
 		ctx.Notify.Send("Visuals", on and ("ピンクティント有効 (" .. BlockOutline.TintCount() .. " ブロック)") or "ティントを解除しました", 2.5, "check")
 	end)
 
+	C.Slider(page, "ティントの濃さ", 0.2, 0.9, 0.55, 0.05, "", Theme, ctx.Track, function(val)
+		BlockOutline.SetTintTransparency(val)
+	end)
+
 	C.Slider(page, "縁の太さ", 0.01, 0.12, 0.035, 0.005, "", Theme, ctx.Track, function(val)
 		BlockOutline.SetThickness(val)
 	end)

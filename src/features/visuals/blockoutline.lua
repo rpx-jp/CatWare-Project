@@ -2,14 +2,16 @@ local BlockOutline = {}
 
 -- ワールドのブロック(3スタッド単位)に
 --  1) 常時ピンクの縁 (SelectionBox)
---  2) ブロック本体のピンク寄りカラーチェンジ (ローカルのみ・元の色は復元可能)
+--  2) 半透明ピンクのカバーでブロックを覆う (テクスチャブロックにも効く・ローカルのみ)
 -- の2機能を提供する
 local outlineOn = false
 local tintOn = false
 local color = Color3.fromRGB(255, 105, 180)
 local thickness = 0.035
+local tintTransparency = 0.55
 local boxesByPart = {}
-local origColors = {}
+local coversByPart = {}
+local tintFolder = nil
 local connections = {}
 
 local BLOCK_NAMES = {
@@ -37,14 +39,6 @@ local BLOCK_NAMES = {
 	clay = true,
 }
 
--- 元の色をピンク寄りに変換する (明るさは保持して質感の差を残す)
-local PINK_HUE = 0.92
-local function pinkShift(c)
-	local h, s, v = c:ToHSV()
-	s = math.clamp(math.max(s, 0.35) * 0.9, 0, 1)
-	return Color3.fromHSV(PINK_HUE, s, v)
-end
-
 local function isTargetPart(part)
 	if not part:IsA("BasePart") then return false end
 	if part.Transparency >= 0.95 then return false end
@@ -55,6 +49,9 @@ local function isTargetPart(part)
 	-- キャラ類は除外
 	local char = part:FindFirstAncestorOfClass("Model")
 	if char and char:FindFirstChildOfClass("Humanoid") then return false end
+
+	-- 自分のカバーフォルダは除外
+	if tintFolder and part:IsDescendantOf(tintFolder) then return false end
 
 	-- 置かれたブロック (Workspace.Blocks 配下)
 	local p = part.Parent
@@ -88,20 +85,41 @@ local function applyOutline(part)
 	boxesByPart[part] = sb
 end
 
+local function getTintFolder()
+	if not tintFolder or not tintFolder.Parent then
+		tintFolder = Instance.new("Folder")
+		tintFolder.Name = "CatWareBlockTint"
+		tintFolder.Parent = workspace
+	end
+	return tintFolder
+end
+
 local function applyTint(part)
 	if not tintOn then return end
-	if origColors[part] then return end
+	if coversByPart[part] then return end
 
-	origColors[part] = part.Color
-	part.Color = pinkShift(part.Color)
+	local cover = Instance.new("Part")
+	cover.Name = "CatWareTintCover"
+	cover.Anchored = true
+	cover.CanCollide = false
+	cover.CanQuery = false
+	cover.CanTouch = false
+	cover.CastShadow = false
+	cover.Material = Enum.Material.Neon
+	cover.Color = color
+	cover.Transparency = tintTransparency
+	cover.Size = part.Size * 1.002
+	cover.CFrame = part.CFrame
+	cover.Parent = getTintFolder()
+	coversByPart[part] = cover
 end
 
 local function revertTint(part)
-	local orig = origColors[part]
-	if orig then
-		origColors[part] = nil
-		if part.Parent then
-			part.Color = orig
+	local cover = coversByPart[part]
+	if cover then
+		coversByPart[part] = nil
+		if cover.Parent then
+			cover:Destroy()
 		end
 	end
 end
@@ -152,7 +170,7 @@ local function ensureMonitors()
 		end
 	end))
 	table.insert(connections, workspace.DescendantRemoving:Connect(function(d)
-		if boxesByPart[d] or origColors[d] then
+		if boxesByPart[d] or coversByPart[d] then
 			detach(d)
 		end
 	end))
@@ -183,8 +201,12 @@ function BlockOutline.SetTint(on)
 		ensureMonitors()
 		refreshAll()
 	else
-		for part in pairs(origColors) do
+		for part in pairs(coversByPart) do
 			revertTint(part)
+		end
+		if tintFolder then
+			tintFolder:Destroy()
+			tintFolder = nil
 		end
 		if not outlineOn then
 			disconnectAll()
@@ -197,12 +219,22 @@ function BlockOutline.SetColor(c)
 	for _, sb in pairs(boxesByPart) do
 		sb.Color3 = c
 	end
+	for _, cover in pairs(coversByPart) do
+		cover.Color = c
+	end
 end
 
 function BlockOutline.SetThickness(val)
 	thickness = val
 	for _, sb in pairs(boxesByPart) do
 		sb.LineThickness = val
+	end
+end
+
+function BlockOutline.SetTintTransparency(val)
+	tintTransparency = val
+	for _, cover in pairs(coversByPart) do
+		cover.Transparency = val
 	end
 end
 
@@ -224,7 +256,7 @@ end
 
 function BlockOutline.TintCount()
 	local n = 0
-	for _ in pairs(origColors) do
+	for _ in pairs(coversByPart) do
 		n += 1
 	end
 	return n
