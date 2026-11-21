@@ -60,6 +60,7 @@ function Assets.ClearCache()
 		"cw.png", "cwmini.png", "glow.png", "shadow.png",
 		"stage_bg.png", "stage_glass.png", "stage_aurora.png", "stage_shadow.png",
 		"dock_bg.png", "dock_glass.png", "dock_shadow.png", "dock_pill.png",
+		"ui_modern.png", "ui_classic.png",
 		"karambit.rbxm", "butterfly.rbxm", "katana.rbxm",
 	}) do
 		local path = ASSETS_DIR .. "/" .. name

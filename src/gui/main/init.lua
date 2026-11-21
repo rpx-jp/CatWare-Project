@@ -471,6 +471,7 @@ local function initMainGui(CatWare)
 	end)
 
 	local function unload()
+		CatWare.ActiveGui = nil
 		for _, c in ipairs(connections) do
 			pcall(function() c:Disconnect() end)
 		end
@@ -521,6 +522,8 @@ local function initMainGui(CatWare)
 	selectPage("home")
 	setOpen(true, false)
 	Notify.Send("CatWare", "CatWare VisionOS 起動完了", 2.5)
+
+	return ctx
 end
 
 return initMainGui

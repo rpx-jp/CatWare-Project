@@ -2,6 +2,22 @@ return function(page, ctx)
 	local C = ctx.Components
 	local Theme = ctx.Theme
 
+	if ctx.CatWare.SwitchUi then
+		C.Section(page, "UI Style")
+
+		if ctx.CatWare.ActiveUi == "modern" then
+			C.Button(page, "従来のUI (Hub) に切り替え", "BentoDeck スタイルの旧UIに切り替えます", false, Theme, function()
+				ctx.Notify.Send("UI", "従来のUIに切り替えています...", 2)
+				ctx.CatWare.SwitchUi("classic")
+			end)
+		else
+			C.Button(page, "新しいUI (VisionOS) に切り替え", "リキッドガラスUIに切り替えます", false, Theme, function()
+				ctx.Notify.Send("UI", "新しいUIに切り替えています...", 2)
+				ctx.CatWare.SwitchUi("modern")
+			end)
+		end
+	end
+
 	C.Section(page, "Interface")
 
 	C.Slider(page, "UI スケール", 0.75, 1.25, 1.0, 0.05, "x", Theme, ctx.Track, function(val)
